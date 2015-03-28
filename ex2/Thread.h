@@ -13,18 +13,20 @@ class Thread {
 
     public:
     Thread(int tid, void (*func)(void), Priority pr);
+    Thread(const Thread &rhs);
     virtual ~Thread();
     int getQuantums();
     int getId();
 
     bool operator==(const Thread& thread, int id);
+    Thread& operator=(const Thread &rhs);
     private:
     int tid;
     void (*f)(void);
     Priority pr;
     unsigned int quantumsFinished;
 //	int blockingThreadId;
-    char stack[STACK_SIZE];
+    char* stack;
 };
 
 #endif /* THREAD_H_ */
