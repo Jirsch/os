@@ -20,67 +20,146 @@ enum State
 };
 
 using std::list;
+using std::queue;
+using std::priority_queue;
+
+static const int SAVE_SIGNAL_MASK = 1;
+
+Thread *gThreads[MAX_THREAD_NUM];
+State gThreadsState[MAX_THREAD_NUM];
+priority_queue<int> gVacantTids;
 
 // TODO: think of option to change global members to a class
-
 int gQuantumUsecs;
+int gTotalQuanta;
 int gNumOfThreads;
-int gId;
-list<int> *gVacantIdList;
-list<Thread> gRedThreads;
-list<Thread> gOrangeThreads;
-list<Thread> gGreenThreads;
 
-Thread *gRunningThread;
-list<Thread> gBlockedThreads;
-State gThreadsState[MAX_THREAD_NUM];
+list<int> gRedThreads;
+list<int> gOrangeThreads;
+list<int> gGreenThreads;
 
-list<int> *createIdList()
+int gRunningThreadId;
+
+int getNextThread()
 {
-    list<int> *idList = new list<int>();
-    for (int i = 0; i < MAX_THREAD_NUM; i++)
+    int nextId;
+    if (!gRedThreads.empty())
     {
-        idList->push_back(i);
+        nextId = gRedThreads.front();
+        gRedThreads.pop_front();
     }
-    return idList;
+    else if (!gOrangeThreads.empty())
+    {
+        nextId = gOrangeThreads.front();
+        gOrangeThreads.pop_front();
+    }
+    else
+    {
+        nextId = gGreenThreads.front();
+        gGreenThreads.pop_front();
+    }
+    return nextId;
 }
 
-void createQueues()
+void resetTimer()
 {
-    gRedThreads = list<Thread>();
-    gOrangeThreads = list<Thread>();
-    gGreenThreads = list<Thread>();
-}
-
-void swapRunningThread(int sig)
-{
-    //TODO: fill this
-}
-
-void runProcess(int quantum_usecs)
-{
-    signal(SIGVTALRM, swapRunningThread);
-
     struct itimerval tv;
     tv.it_value.tv_sec = 0;  /* first time interval, seconds part */
-    tv.it_value.tv_usec = quantum_usecs; /* first time interval, microseconds part */
+    tv.it_value.tv_usec = gQuantumUsecs; /* first time interval, microseconds part */
     tv.it_interval.tv_sec = 0;  /* following time intervals, seconds part */
-    tv.it_interval.tv_usec = quantum_usecs; /* following time intervals, microseconds part */
+    tv.it_interval.tv_usec = gQuantumUsecs; /* following time intervals, microseconds part */
 
+    // TODO: err msg
     setitimer(ITIMER_VIRTUAL, &tv, nullptr);
+
+}
+
+void incrementGlobalQuanta()
+{
+    ++gTotalQuanta;
+}
+
+void moveToReady(int tid)
+{
+    gThreadsState[tid] = READY;
+
+    switch (gThreads[tid]->getPriority())
+    {
+        case RED:
+            gRedThreads.push_back(tid);
+            break;
+        case ORANGE:
+            gOrangeThreads.push_back(tid);
+            break;
+        case GREEN:
+            gGreenThreads.push_back(tid);
+            break;
+    }
+}
+
+int saveCurrentState()
+{
+    return sigsetjmp(gThreads[gRunningThreadId]->getBuf(), SAVE_SIGNAL_MASK);
+}
+
+void swapRunningThread()
+{
+    gRunningThreadId = getNextThread();
+    gThreadsState[gRunningThreadId] = RUNNING;
+
+    gThreads[gRunningThreadId]->incrementQuanta();
+    incrementGlobalQuanta();
+
+    resetTimer();
+    siglongjmp(gThreads[gRunningThreadId]->getBuf(), 1);
+}
+
+void timer_handler(int sig)
+{
+    int res = saveCurrentState();
+
+    if (res != 0)
+    {
+        return;
+    }
+
+    moveToReady(gRunningThreadId);
+
+    swapRunningThread();
+}
+
+void initThreadStates()
+{
+    gThreadsState[0] = RUNNING;
+    for (int i = 1; i < MAX_THREAD_NUM; ++i)
+    {
+        gThreadsState[i] = NOT_EXIST;
+        gVacantTids.push(i);
+    }
+}
+
+void initMainThread()
+{
+    gThreads[0] = new Thread(0, nullptr,ORANGE);
+    gRunningThreadId = 0;
+    gNumOfThreads = 1;
 }
 
 int uthread_init(int quantum_usecs)
 {
     //TODO: when should we return -1?
-    //TODO: what about main thread?
-    gQuantumUsecs = quantum_usecs;
-    gNumOfThreads = 0;
-    gVacantIdList = createIdList();
-    gBlockedThreads = list<Thread>();
-    createQueues();
 
-    runProcess(quantum_usecs);
+
+    gQuantumUsecs = quantum_usecs;
+    signal(SIGVTALRM, timer_handler);
+
+    initMainThread();
+
+    // TODO: 1?
+    gTotalQuanta = 1;
+
+    initThreadStates();
+    resetTimer();
 
     return 0;
 }
@@ -91,129 +170,78 @@ int uthread_spawn(void (*f)(void), Priority pr)
     {
         return -1;
     }
-    // check if minVacantId is -1? shouldn't be -1 because of the previous check
-    int minVacantId = gVacantIdList->front();
-    gVacantIdList->pop_front();
 
-    Thread newThread(minVacantId, f, pr);
+    int minVacantId = gVacantTids.top();
+    gVacantTids.pop();
 
-    switch (pr)
-    {
-        case RED:
-            gRedThreads.push_back(newThread);
-            break;
-        case ORANGE:
-            gOrangeThreads.push_back(newThread);
-            break;
-        case GREEN:
-            gGreenThreads.push_back(newThread);
-            break;
-    }
-    gThreadsState[minVacantId] = READY;
+    gThreads[minVacantId] = new Thread(minVacantId, f, pr);
     gNumOfThreads++;
+    moveToReady(minVacantId);
+
     return minVacantId;
 }
 
-int getNextThread(Thread &next)
+void addVacantId(int tid)
 {
-    if (!gRedThreads.empty())
-    {
-        next = gRedThreads.front();
-        gRedThreads.pop_front();
-    }
-    else if (!gOrangeThreads.empty())
-    {
-        next = gOrangeThreads.front();
-        gOrangeThreads.pop_front();
-    }
-    else
-    {
-        if (gGreenThreads.empty())
-        {
-            return -1;
-        }
-        else
-        {
-            next = gGreenThreads.front();
-            gGreenThreads.pop_front();
-        }
-    }
-    gThreadsState[next.getId()] = RUNNING;
-    return next.getId();
+    gVacantTids.push(tid);
 }
 
-void addVacantId(int id)
+void removeThreadFromReady(int tid)
 {
-    for (auto iter = gVacantIdList->begin(); iter != gVacantIdList->end(); iter++)
+    Priority pr = gThreads[tid]->getPriority();
+    switch (pr)
     {
-        if (*iter > id)
-        {
-            gVacantIdList->insert(iter, id);
-        }
+        case GREEN:
+            gGreenThreads.remove(tid);
+            break;
+        case ORANGE:
+            gOrangeThreads.remove(tid);
+            break;
+        case RED:
+            gRedThreads.remove(tid);
+            break;
     }
+
 }
 
-int removeThreadFromList(list<Thread> &source, int tid, Thread &removed)
+void deleteThread(int tid)
 {
-    for (auto iter = source.begin(); iter != source.end(); iter++)
-    {
-        if (iter->getId() == tid)
-        {
-            removed = Thread(*iter);
-            source.erase(iter);
-
-            return 0;
-        }
-    }
-    return -1;
-}
-
-Thread removeThreadFromReady(int tid)
-{
-    Thread *removedThread;
-    int result = removeThreadFromList(gRedThreads, tid, *removedThread);
-
-    if (result == -1)
-    {
-        result = removeThreadFromList(gOrangeThreads, tid, *removedThread);
-        if (result == -1)
-        {
-            result = removeThreadFromList(gGreenThreads, tid, *removedThread);
-        }
-    }
-    return *removedThread;
+    gThreadsState[tid] = NOT_EXIST;
+    delete gThreads[tid];
+    addVacantId(tid);
 }
 
 int uthread_terminate(int tid)
 {
     if (tid == 0)
     {
+        deleteThread(tid);
         exit(0);
     }
     switch (gThreadsState[tid])
     {
+        case NOT_EXIST:
+            // TODO: err msg
+            return -1;
         case READY:
-            // looking for the thread in the READY lists
             removeThreadFromReady(tid);
+            deleteThread(tid);
             break;
         case RUNNING:
-            getNextThread(*gRunningThread);
+            deleteThread(tid);
+            swapRunningThread();
             break;
         case BLOCKED:
-            // looking for the thread in the blocked list
-            Thread *stub;
-            removeThreadFromList(gBlockedThreads, tid, *stub);
+            deleteThread(tid);
             break;
     }
-    gThreadsState[tid] = NOT_EXIST;
-    // enabling use of the terminated tid
-    addVacantId(tid);
+
     return 0;
 }
 
 bool isVacant(int tid)
 {
-    return std::binary_search(gVacantIdList->begin(), gVacantIdList->end(), tid);
+    return gThreadsState[tid] == NOT_EXIST;
 }
 
 int uthread_suspend(int tid)
@@ -223,68 +251,78 @@ int uthread_suspend(int tid)
         // TODO add error msg
         return -1;
     }
-    Thread *blockedThread;
+
+    gThreadsState[tid] = BLOCKED;
     switch (gThreadsState[tid])
     {
         case BLOCKED:
-            return 0;
-        case READY:
-            *blockedThread = (removeThreadFromReady(tid));
             break;
         case RUNNING:
-            blockedThread = gRunningThread;
-            getNextThread(*gRunningThread);
+            int res = saveCurrentState();
+            if (res == 0)
+            {
+                swapRunningThread();
+            }
+            break;
+        case READY:
+            removeThreadFromReady(tid);
             break;
     }
-
-    gBlockedThreads.push_back(*blockedThread);
-    gThreadsState[tid] = BLOCKED;
 
     return 0;
 }
 
 int uthread_resume(int tid)
 {
-    if (isVacant(tid))
-    {
-        // TODO add err msg
-        return -1;
-    }
     switch (gThreadsState[tid])
     {
+        case NOT_EXIST:
+            //TODO: err msg
+            return -1;
         case RUNNING:
         case READY:
             return 0;
+        case BLOCKED:
+            switch (gThreads[tid]->getPriority())
+            {
+                case RED:
+                    gRedThreads.push_back(tid);
+                    break;
+                case ORANGE:
+                    gOrangeThreads.push_back(tid);
+                    break;
+                case GREEN:
+                    gGreenThreads.push_back(tid);
+                    break;
+            }
 
+            gThreadsState[tid] = READY;
+            return 0;
     }
-    Thread *resumedThread = removeThreadFromList(gBlockedThreads, tid, <#initializer#>);
-    if (resumedThread != -1)
-    {
-        switch (resumedThread->pr)
-        {
-            case RED:
-                gRedThreads->push_back(*resumedThread);
-                break;
-            case ORANGE:
-                gOrangeThreads->push_back(*resumedThread);
-                break;
-            case GREEN:
-                gGreenThreads->push_back(*resumedThread);
-                break;
-        }
-    }
-    gThreadsState[tid] = READY;
-    return 0;
 }
 
 int uthread_get_tid()
 {
-    return gRunningThread->getId();
+    return gRunningThreadId;
 }
 
-int uthread_get_total_quantums();
+int uthread_get_total_quantums()
+{
+    return gTotalQuanta;
+}
 
-int uthread_get_quantums(int tid);
+int uthread_get_quantums(int tid)
+{
+    switch (gThreadsState[tid])
+    {
+        case NOT_EXIST:
+            //TODO: err msg
+            return -1;
+        default:
+            return gThreads[tid]->getQuanta();
+    }
+}
+
 
 
 

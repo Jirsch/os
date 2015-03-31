@@ -2,6 +2,7 @@
 // Created by Jonathan Hirsch on 3/28/15.
 //
 
+#include <signal.h>
 #include "Thread.h"
 
 
@@ -10,9 +11,18 @@ Thread::Thread(int tid, void (*func)(void), Priority pr)
     this->f = func;
     this->tid = tid;
     this->pr = pr;
-    this->quantumsFinished = START; // TODO: change?
-    //this->blockingThreadId = NOT_BLOCKED;
-    this->stack = new char[STACK_SIZE];
+    this->quantumsFinished = START;
+
+    if (f != nullptr)
+    {
+        address_t sp, pc;
+        sp = (address_t) stack + STACK_SIZE - sizeof(address_t);
+        pc = (address_t) f;
+
+        (this->buf.__jmpbuf)[JB_SP] = translate_address(sp);
+        (this->buf.__jmpbuf)[JB_PC] = translate_address(pc);
+        sigemptyset(&this->buf.__saved_mask);
+    }
 }
 
 Thread::Thread(const Thread &rhs)
@@ -22,14 +32,13 @@ Thread::Thread(const Thread &rhs)
     this->pr = rhs.pr;
     this->quantumsFinished = rhs.quantumsFinished;
 
-    this->stack = new char[STACK_SIZE];
     strncpy(this->stack, rhs.stack, STACK_SIZE);
 }
 
-bool Thread::operator==(const Thread &thread, int id)
-{
-    return (thread.tid == id);
-}
+//bool Thread::operator==(const Thread &thread, int id)
+//{
+//    return (thread.tid == id);
+//}
 
 Thread &Thread::operator=(const Thread &rhs)
 {
@@ -42,8 +51,6 @@ Thread &Thread::operator=(const Thread &rhs)
     this->pr = rhs.pr;
     this->quantumsFinished = rhs.quantumsFinished;
 
-    delete[] this->stack;
-    this->stack = new char[STACK_SIZE];
     strncpy(this->stack, rhs.stack, STACK_SIZE);
 
     return *this;
@@ -51,15 +58,9 @@ Thread &Thread::operator=(const Thread &rhs)
 
 Thread::~Thread()
 {
-    delete[] this->stack;
 }
 
-int Thread::getQuantums()
+void Thread::incrementQuanta()
 {
-    return this->quantumsFinished;
-}
-
-int Thread::getId()
-{
-    return this->tid;
+    ++(this->quantumsFinished);
 }

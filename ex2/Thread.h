@@ -6,27 +6,97 @@
 #define THREAD_H_
 
 #define NOT_BLOCKED -1
-#define START 0
+#define START 1
+
+#include <setjmp.h>
 #include "uthreads.h"
 
-class Thread {
 
-    public:
-    Thread(int tid, void (*func)(void), Priority pr);
-    Thread(const Thread &rhs);
-    virtual ~Thread();
-    int getQuantums();
-    int getId();
+#ifdef __x86_64__
+/* code for 64 bit Intel arch */
 
-    bool operator==(const Thread& thread, int id);
-    Thread& operator=(const Thread &rhs);
+typedef unsigned long address_t;
+#define JB_SP 6
+#define JB_PC 7
+
+/* A translation is required when using an address of a variable.
+   Use this as a black box in your code. */
+address_t translate_address(address_t addr)
+{
+    address_t ret;
+    asm volatile("xor    %%fs:0x30,%0\n"
+            "rol    $0x11,%0\n"
+    : "=g" (ret)
+    : "0" (addr));
+    return ret;
+}
+
+#else
+/* code for 32 bit Intel arch */
+
+typedef unsigned int address_t;
+#define JB_SP 4
+#define JB_PC 5
+
+/* A translation is required when using an address of a variable.
+   Use this as a black box in your code. */
+address_t translate_address(address_t addr)
+{
+    address_t ret;
+    asm volatile("xor    %%gs:0x18,%0\n"
+		"rol    $0x9,%0\n"
+                 : "=g" (ret)
+                 : "0" (addr));
+    return ret;
+}
+
+#endif
+
+
+
+class Thread
+{
+
     private:
     int tid;
     void (*f)(void);
     Priority pr;
     unsigned int quantumsFinished;
-//	int blockingThreadId;
-    char* stack;
+    char stack[STACK_SIZE];
+    sigjmp_buf buf;
+
+    public:
+    Thread(int tid, void (*func)(void), Priority pr);
+    Thread(const Thread &rhs);
+
+    Priority const &getPriority() const
+    {
+        return pr;
+    }
+
+
+    sigjmp_buf getBuf() const
+    {
+        return buf;
+    }
+
+
+    int getId() const
+    {
+        return tid;
+    }
+
+
+    unsigned int getQuanta() const
+    {
+        return quantumsFinished;
+    }
+
+    void incrementQuanta();
+
+    virtual ~Thread();
+
+    Thread &operator=(const Thread &rhs);
 };
 
 #endif /* THREAD_H_ */
