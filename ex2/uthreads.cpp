@@ -8,8 +8,6 @@
 #include "uthreads.h"
 #include "Thread.h"
 #include <list>
-#include <stdlib.h>
-#include <stdio.h>
 #include <signal.h>
 #include <sys/time.h>
 #include <algorithm>
@@ -21,8 +19,6 @@ enum State
 };
 
 
-// TODO: block signals
-
 using std::list;
 using std::queue;
 using std::priority_queue;
@@ -31,20 +27,20 @@ static const int SYSTEM_CALL_OK = 0;
 static const int SAVE_SIGNAL_MASK = 1;
 static const int MAIN_THREAD_ID = 0;
 
-Thread *gThreads[MAX_THREAD_NUM];
-State gThreadsState[MAX_THREAD_NUM];
-priority_queue<int> gVacantTids;
-
 // TODO: think of option to change global members to a class
 int gQuantumUsecs;
 int gTotalQuanta;
 int gNumOfThreads;
+int gRunningThreadId;
+sigset_t gTimerSet;
+
+Thread *gThreads[MAX_THREAD_NUM];
+State gThreadsState[MAX_THREAD_NUM];
+priority_queue<int> gVacantTids;
 
 list<int> gRedThreads;
 list<int> gOrangeThreads;
 list<int> gGreenThreads;
-
-int gRunningThreadId;
 
 int getNextThread()
 {
@@ -112,7 +108,19 @@ int saveCurrentState()
     return sigsetjmp(gThreads[gRunningThreadId]->getBuf(), SAVE_SIGNAL_MASK);
 }
 
-void swapRunningThread()
+void blockTimer()
+{
+    // TODO err msg
+    sigprocmask(SIG_BLOCK,&gTimerSet, nullptr);
+}
+
+void unblockTimer()
+{
+    // TODO err msg
+    sigprocmask(SIG_UNBLOCK,&gTimerSet, nullptr);
+}
+
+void swapRunningThread(bool shouldUnblock)
 {
     gRunningThreadId = getNextThread();
     gThreadsState[gRunningThreadId] = RUNNING;
@@ -121,6 +129,11 @@ void swapRunningThread()
     incrementGlobalQuanta();
 
     resetTimer();
+    if (shouldUnblock)
+    {
+        unblockTimer();
+    }
+
     siglongjmp(gThreads[gRunningThreadId]->getBuf(), 1);
 }
 
@@ -135,7 +148,7 @@ void timer_handler(int sig)
 
     moveToReady(gRunningThreadId);
 
-    swapRunningThread();
+    swapRunningThread(false);
 }
 
 void initThreadStates()
@@ -189,6 +202,10 @@ int uthread_init(int quantum_usecs)
 
     initMainThread();
 
+    // TODO err msg
+    sigemptyset(&gTimerSet);
+    sigaddset(&gTimerSet, SIGVTALRM);
+
     resetTimer();
 
     return 0;
@@ -196,9 +213,11 @@ int uthread_init(int quantum_usecs)
 
 int uthread_spawn(void (*f)(void), Priority pr)
 {
+    blockTimer();
     if (gNumOfThreads >= MAX_THREAD_NUM)
     {
         std::cerr << "thread library error: Thread count reached limit, cannot spawn a new one\n";
+        unblockTimer();
         return -1;
     }
 
@@ -209,6 +228,7 @@ int uthread_spawn(void (*f)(void), Priority pr)
     gNumOfThreads++;
     moveToReady(minVacantId);
 
+    unblockTimer();
     return minVacantId;
 }
 
@@ -260,6 +280,7 @@ void cleanThreadPool()
 
 int uthread_terminate(int tid)
 {
+    blockTimer();
     if (tid == 0)
     {
         cleanThreadPool();
@@ -269,19 +290,21 @@ int uthread_terminate(int tid)
     {
         case NOT_EXIST:
             std::cerr << "thread library error: Cannot terminate a non existing thread (id: " << tid << "\n";
+            unblockTimer();
             return -1;
         case READY:
             Priority pr = gThreads[tid]->getPriority();
             removeThreadFromReady(tid,pr);
             break;
         case RUNNING:
-            swapRunningThread();
+            swapRunningThread(true);
             break;
         case BLOCKED:
             break;
     }
 
     deleteThread(tid);
+    unblockTimer();
     return 0;
 }
 
@@ -292,14 +315,17 @@ bool isVacant(int tid)
 
 int uthread_suspend(int tid)
 {
+    blockTimer();
     if (tid == MAIN_THREAD_ID)
     {
         std::cerr << "thread library error: Cannot suspend the main thread (id: " << tid << "\n";
+        unblockTimer();
         return -1;
     }
     if (tid == isVacant(tid))
     {
         std::cerr << "thread library error: Cannot suspend a non existing thread (id: " << tid << "\n";
+        unblockTimer();
         return -1;
     }
 
@@ -312,7 +338,7 @@ int uthread_suspend(int tid)
             int res = saveCurrentState();
             if (res == 0)
             {
-                swapRunningThread();
+                swapRunningThread(true);
             }
             break;
         case READY:
@@ -320,19 +346,22 @@ int uthread_suspend(int tid)
             break;
     }
 
+    unblockTimer();
     return 0;
 }
 
 int uthread_resume(int tid)
 {
+    blockTimer();
     switch (gThreadsState[tid])
     {
         case NOT_EXIST:
             std::cerr << "thread library error: Cannot resume a non existing thread (id: " << tid << "\n";
+            unblockTimer();
             return -1;
         case RUNNING:
         case READY:
-            return 0;
+            break;
         case BLOCKED:
             switch (gThreads[tid]->getPriority())
             {
@@ -348,8 +377,11 @@ int uthread_resume(int tid)
             }
 
             gThreadsState[tid] = READY;
-            return 0;
+            break;
     }
+
+    unblockTimer();
+    return 0;
 }
 
 int uthread_get_tid()
