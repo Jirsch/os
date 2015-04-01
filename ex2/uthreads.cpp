@@ -70,9 +70,8 @@ void resetTimer()
     tv.it_value.tv_usec = gQuantumUsecs; /* first time interval, microseconds part */
     tv.it_interval.tv_sec = 0;  /* following time intervals, seconds part */
     tv.it_interval.tv_usec = gQuantumUsecs; /* following time intervals, microseconds part */
-    
-    int timerRes = setitimer(ITIMER_VIRTUAL, &tv, nullptr);
-    if (timerRes != SYSTEM_CALL_OK)
+
+    if (setitimer(ITIMER_VIRTUAL, &tv, nullptr)!=SYSTEM_CALL_OK)
     {
         std::cerr << "system error: Setting timer interval failed.\n";
         exit(1);
@@ -110,14 +109,20 @@ int saveCurrentState()
 
 void blockTimer()
 {
-    // TODO err msg
-    sigprocmask(SIG_BLOCK,&gTimerSet, nullptr);
+    if ( sigprocmask(SIG_BLOCK,&gTimerSet, nullptr) != SYSTEM_CALL_OK )
+    {
+        std::cerr << "system error: Blocking timer signal failed.\n";
+        exit(1);
+    }
 }
 
 void unblockTimer()
 {
-    // TODO err msg
-    sigprocmask(SIG_UNBLOCK,&gTimerSet, nullptr);
+    if (sigprocmask(SIG_UNBLOCK,&gTimerSet, nullptr) != SYSTEM_CALL_OK)
+    {
+        std::cerr << "system error: Unblocking timer signal failed.\n";
+        exit(1);
+    }
 }
 
 void swapRunningThread(bool shouldUnblock)
@@ -185,14 +190,13 @@ int uthread_init(int quantum_usecs)
 {
     if (quantum_usecs<=0)
     {
-        std::cerr << "thread library error: quantum duration must be larget than 0\n";
+        std::cerr << "thread library error: quantum duration must be greater than 0\n";
         return -1;
     }
 
     gQuantumUsecs = quantum_usecs;
 
-    void (*prev_handler)(int) = signal(SIGVTALRM, timer_handler);
-    if (prev_handler == SIG_ERR)
+    if (signal(SIGVTALRM, timer_handler) == SIG_ERR)
     {
         std::cerr << "system error: Setting timer handler failed.\n";
         exit(1);
@@ -202,9 +206,16 @@ int uthread_init(int quantum_usecs)
 
     initMainThread();
 
-    // TODO err msg
-    sigemptyset(&gTimerSet);
-    sigaddset(&gTimerSet, SIGVTALRM);
+    if ( sigemptyset(&gTimerSet) != SYSTEM_CALL_OK )
+    {
+        std::cerr << "system error: Setting signal set failed.\n";
+        exit(1);
+    }
+    if ( sigaddset(&gTimerSet, SIGVTALRM) != SYSTEM_CALL_OK )
+    {
+        std::cerr << "system error: Setting signal set failed.\n";
+        exit(1);
+    }
 
     resetTimer();
 
