@@ -248,6 +248,7 @@ int uthread_spawn(void (*f)(void), Priority pr)
         return -1;
     }
 
+    // get the id for the next thread
     int minVacantId = gVacantTids.top();
     gVacantTids.pop();
 
@@ -286,11 +287,17 @@ void removeThreadFromReady(const int tid, const Priority &pr)
 
 void deleteThread(int tid)
 {
-    gThreadsState[tid] = NOT_EXIST;
+
+/*
+* delete all existing threads
+*/    gThreadsState[tid] = NOT_EXIST;
     delete gThreads[tid];
     addVacantId(tid);
 }
 
+/*
+* delete all existing threads
+*/
 void cleanThreadPool()
 {
     for (int tid = 0; tid < MAX_THREAD_NUM; ++tid)
@@ -338,6 +345,9 @@ int uthread_terminate(int tid)
     return 0;
 }
 
+/*
+* return true if the tid is available
+*/
 bool isVacant(int tid)
 {
     return gThreadsState[tid] == NOT_EXIST;
