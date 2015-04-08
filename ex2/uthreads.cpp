@@ -340,7 +340,6 @@ int uthread_suspend(int tid)
         return -1;
     }
 
-    gThreadsState[tid] = BLOCKED;
     switch (gThreadsState[tid])
     {
         case BLOCKED:
@@ -356,7 +355,8 @@ int uthread_suspend(int tid)
             removeThreadFromReady(tid, gThreads[tid]->getPriority());
             break;
     }
-
+    
+    gThreadsState[tid] = BLOCKED;
     unblockTimer();
     return 0;
 }
