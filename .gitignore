@@ -1,1 +1,10 @@
+# CLion
 **/.idea
+
+# Eclipse
+**/.cproject
+**/.project
+**/.metadata
+
+# C
+**.*.o

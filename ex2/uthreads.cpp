@@ -287,10 +287,7 @@ void removeThreadFromReady(const int tid, const Priority &pr)
 
 void deleteThread(int tid)
 {
-
-/*
-* delete all existing threads
-*/    gThreadsState[tid] = NOT_EXIST;
+    gThreadsState[tid] = NOT_EXIST;
     delete gThreads[tid];
     addVacantId(tid);
 }
@@ -323,6 +320,7 @@ int uthread_terminate(int tid)
         cleanThreadPool();
         exit(0);
     }
+    Priority pr;
     switch (gThreadsState[tid])
     {
         case NOT_EXIST:
@@ -330,7 +328,7 @@ int uthread_terminate(int tid)
             unblockTimer();
             return -1;
         case READY:
-            Priority pr = gThreads[tid]->getPriority();
+            pr = gThreads[tid]->getPriority();
             removeThreadFromReady(tid,pr);
             break;
         case RUNNING:
@@ -368,13 +366,15 @@ int uthread_suspend(int tid)
         unblockTimer();
         return -1;
     }
-
+    int res;
     switch (gThreadsState[tid])
     {
         case BLOCKED:
             break;
         case RUNNING:
-            int res = saveCurrentState();
+        	// if the RUNNING thread suspends itself
+        	gThreadsState[tid] = BLOCKED;
+            res = saveCurrentState();
             if (res == 0)
             {
                 swapRunningThread(true);
@@ -384,7 +384,6 @@ int uthread_suspend(int tid)
             removeThreadFromReady(tid, gThreads[tid]->getPriority());
             break;
     }
-    
     gThreadsState[tid] = BLOCKED;
     unblockTimer();
     return 0;
