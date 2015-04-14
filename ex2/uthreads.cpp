@@ -27,7 +27,7 @@ static const int SYSTEM_CALL_OK = 0;
 static const int SAVE_SIGNAL_MASK = 1;
 static const int MAIN_THREAD_ID = 0;
 
-// TODO: think of option to change global members to a class
+// global members for the program
 int gQuantumUsecs;
 int gTotalQuanta;
 int gNumOfThreads;
@@ -35,13 +35,21 @@ int gRunningThreadId;
 sigset_t gTimerSet;
 
 Thread *gThreads[MAX_THREAD_NUM];
+
+// an array with the state of each thread
 State gThreadsState[MAX_THREAD_NUM];
+
+// will hold the ID numbers that aren't in use
 priority_queue<int> gVacantTids;
 
+// the lists containing the READY threads
 list<int> gRedThreads;
 list<int> gOrangeThreads;
 list<int> gGreenThreads;
 
+/*
+* gets the next thread from the READY state lists. the priority is red->orange->green
+*/
 int getNextThread()
 {
     int nextId;
@@ -63,6 +71,9 @@ int getNextThread()
     return nextId;
 }
 
+/*
+* resets the timer to the given round-robin quanta in Usecs
+*/
 void resetTimer()
 {
     struct itimerval tv;
@@ -84,6 +95,9 @@ void incrementGlobalQuanta()
     ++gTotalQuanta;
 }
 
+/*
+* moves the given thread to its priority list
+*/
 void moveToReady(int tid)
 {
     gThreadsState[tid] = READY;
@@ -125,6 +139,9 @@ void unblockTimer()
     }
 }
 
+/*
+* switches the RUNNING thread at the end of the round-robin quantum
+*/
 void swapRunningThread(bool shouldUnblock)
 {
     gRunningThreadId = getNextThread();
@@ -203,7 +220,6 @@ int uthread_init(int quantum_usecs)
     }
 
     initThreadStates();
-
     initMainThread();
 
     if ( sigemptyset(&gTimerSet) != SYSTEM_CALL_OK )
@@ -232,6 +248,7 @@ int uthread_spawn(void (*f)(void), Priority pr)
         return -1;
     }
 
+    // get the id for the next thread
     int minVacantId = gVacantTids.top();
     gVacantTids.pop();
 
@@ -243,6 +260,9 @@ int uthread_spawn(void (*f)(void), Priority pr)
     return minVacantId;
 }
 
+/*
+* add the gived tid to the available ids list
+*/
 void addVacantId(int tid)
 {
     gVacantTids.push(tid);
@@ -267,11 +287,17 @@ void removeThreadFromReady(const int tid, const Priority &pr)
 
 void deleteThread(int tid)
 {
-    gThreadsState[tid] = NOT_EXIST;
+
+/*
+* delete all existing threads
+*/    gThreadsState[tid] = NOT_EXIST;
     delete gThreads[tid];
     addVacantId(tid);
 }
 
+/*
+* delete all existing threads
+*/
 void cleanThreadPool()
 {
     for (int tid = 0; tid < MAX_THREAD_NUM; ++tid)
@@ -319,6 +345,9 @@ int uthread_terminate(int tid)
     return 0;
 }
 
+/*
+* return true if the tid is available
+*/
 bool isVacant(int tid)
 {
     return gThreadsState[tid] == NOT_EXIST;
@@ -340,7 +369,6 @@ int uthread_suspend(int tid)
         return -1;
     }
 
-    gThreadsState[tid] = BLOCKED;
     switch (gThreadsState[tid])
     {
         case BLOCKED:
@@ -356,7 +384,8 @@ int uthread_suspend(int tid)
             removeThreadFromReady(tid, gThreads[tid]->getPriority());
             break;
     }
-
+    
+    gThreadsState[tid] = BLOCKED;
     unblockTimer();
     return 0;
 }
