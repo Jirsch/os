@@ -82,7 +82,7 @@ void resetTimer()
     tv.it_interval.tv_sec = 0;  /* following time intervals, seconds part */
     tv.it_interval.tv_usec = gQuantumUsecs; /* following time intervals, microseconds part */
 
-    if (setitimer(ITIMER_VIRTUAL, &tv, nullptr)!=SYSTEM_CALL_OK)
+    if (setitimer(ITIMER_VIRTUAL, &tv, NULL)!=SYSTEM_CALL_OK)
     {
         std::cerr << "system error: Setting timer interval failed.\n";
         exit(1);
@@ -123,7 +123,7 @@ int saveCurrentState()
 
 void blockTimer()
 {
-    if ( sigprocmask(SIG_BLOCK,&gTimerSet, nullptr) != SYSTEM_CALL_OK )
+    if ( sigprocmask(SIG_BLOCK,&gTimerSet, NULL) != SYSTEM_CALL_OK )
     {
         std::cerr << "system error: Blocking timer signal failed.\n";
         exit(1);
@@ -132,7 +132,7 @@ void blockTimer()
 
 void unblockTimer()
 {
-    if (sigprocmask(SIG_UNBLOCK,&gTimerSet, nullptr) != SYSTEM_CALL_OK)
+    if (sigprocmask(SIG_UNBLOCK,&gTimerSet, NULL) != SYSTEM_CALL_OK)
     {
         std::cerr << "system error: Unblocking timer signal failed.\n";
         exit(1);
@@ -195,7 +195,7 @@ void initThreadStates()
 
 void initMainThread()
 {
-    gThreads[MAIN_THREAD_ID] = new Thread(MAIN_THREAD_ID, nullptr,ORANGE);
+    gThreads[MAIN_THREAD_ID] = new Thread(MAIN_THREAD_ID, NULL,ORANGE);
     gRunningThreadId = MAIN_THREAD_ID;
     gThreadsState[gRunningThreadId] = RUNNING;
 

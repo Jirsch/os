@@ -7,4 +7,6 @@
 **/.metadata
 
 # C
-**.*.o
+**/*.o
+**/*.a
+**/Tests/test*
