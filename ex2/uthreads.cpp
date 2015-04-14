@@ -40,7 +40,7 @@ Thread *gThreads[MAX_THREAD_NUM];
 State gThreadsState[MAX_THREAD_NUM];
 
 // will hold the ID numbers that aren't in use
-priority_queue<int> gVacantTids;
+priority_queue<int, std::vector<int>, std::greater<int> > gVacantTids;
 
 // the lists containing the READY threads
 list<int> gRedThreads;
@@ -144,11 +144,16 @@ void unblockTimer()
 */
 void swapRunningThread(bool shouldUnblock)
 {
-    gRunningThreadId = getNextThread();
+	std::cout << "Swap from " << gRunningThreadId;
+
+	gThreads[gRunningThreadId]->incrementQuanta();
+	incrementGlobalQuanta();
+
+	gRunningThreadId = getNextThread();
     gThreadsState[gRunningThreadId] = RUNNING;
 
-    gThreads[gRunningThreadId]->incrementQuanta();
-    incrementGlobalQuanta();
+    std::cout << "Swapped to " << gRunningThreadId << std::endl;
+
 
     resetTimer();
     if (shouldUnblock)
@@ -161,7 +166,7 @@ void swapRunningThread(bool shouldUnblock)
 
 void timer_handler(int sig)
 {
-    int res = saveCurrentState();
+	int res = saveCurrentState();
 
     if (res != 0)
     {
@@ -171,6 +176,7 @@ void timer_handler(int sig)
     moveToReady(gRunningThreadId);
 
     swapRunningThread(false);
+
 }
 
 void initThreadStates()
@@ -181,7 +187,7 @@ void initThreadStates()
     gRedThreads.clear();
     gGreenThreads.clear();
     gOrangeThreads.clear();
-    gVacantTids = priority_queue<int>();
+    gVacantTids = priority_queue<int, std::vector<int>, std::greater<int> >();
 
     for (int i = 0; i < MAX_THREAD_NUM; ++i)
     {
@@ -425,6 +431,7 @@ int uthread_resume(int tid)
 
 int uthread_get_tid()
 {
+	std::cout << "Get id = " << gRunningThreadId << std::endl;
     return gRunningThreadId;
 }
 
@@ -441,6 +448,7 @@ int uthread_get_quantums(int tid)
             std::cerr << "thread library error: Cannot get time for a non existing thread (id: " << tid << "\n";
             return -1;
         default:
+        	std::cout << "Get quantums for "<< tid << " = " << gThreads[tid]->getQuanta() << std::endl;
             return gThreads[tid]->getQuanta();
     }
 }
