@@ -97,12 +97,12 @@
 97
 98
 99
-thread library error: maximum threads
+thread library error: Thread count reached limit, cannot spawn a new one
 -1
-thread library error: maximum threads
+thread library error: Thread count reached limit, cannot spawn a new one
 -1
 5
-thread library error: maximum threads
+thread library error: Thread count reached limit, cannot spawn a new one
 -1
 15
 25
@@ -112,5 +112,5 @@ thread library error: maximum threads
 65
 75
 85
-thread library error: maximum threads
+thread library error: Thread count reached limit, cannot spawn a new one
 -1

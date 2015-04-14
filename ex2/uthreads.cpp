@@ -304,6 +304,7 @@ void deleteThread(int tid)
     gThreadsState[tid] = NOT_EXIST;
     delete gThreads[tid];
     addVacantId(tid);
+    gNumOfThreads--;
 }
 
 /*
@@ -337,6 +338,8 @@ int uthread_terminate(int tid)
     Priority pr;
     State state = gThreadsState[tid];
     deleteThread(tid);
+
+
     switch (state)
     {
         case NOT_EXIST:
