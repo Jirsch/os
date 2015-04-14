@@ -1,0 +1,113 @@
+main
+red1
+red2
+red1
+red2
+red1
+     red1 suspend
+red2
+orange
+red2
+main
+red2
+orange
+red2
+main
+red2
+     red2 suspend
+orange
+main
+orange
+main
+orange
+main
+orange
+main
+orange
+main
+orange
+main
+orange
+main
+orange
+main
+orange
+     orange suspend
+main
+green1
+main
+green2
+main
+green1
+main
+green2
+main
+green1
+     green1 suspend
+main
+green2
+main
+green2
+main
+green2
+main
+green2
+main
+green2
+     green2 suspend
+main
+main
+main
+main
+main
+main
+main
+main
+     resume green2
+green2
+main
+green2
+main
+green2
+main
+green2
+main
+     resume green1
+green2
+main
+green1
+main
+green2
+main
+green1
+main
+     resume orange
+orange
+main
+orange
+main
+orange
+main
+     resume red2
+red2
+orange
+red2
+main
+red2
+orange
+red2
+main
+red2
+orange
+red2
+main
+     resume red1
+red2
+red1
+red2
+red1
+red2
+red1
+red2
+red1
+     exit
