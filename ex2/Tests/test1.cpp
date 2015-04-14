@@ -29,6 +29,8 @@ void f (void)
 	int j = 0;
 	while(1)
 	{
+//		cout << "uthread_get_tid() = " << uthread_get_tid() << endl;
+//		cout << "uthread_get_quantums = " << uthread_get_quantums(uthread_get_tid()) << endl;
 		if (i == uthread_get_quantums(uthread_get_tid()))
 		{
 			cout << "f" << "  q:  " << i << endl;
