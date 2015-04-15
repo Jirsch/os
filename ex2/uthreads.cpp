@@ -166,8 +166,7 @@ void swapRunningThread(bool notToReady)
 {
 //	std::cout << "Swap from " << gRunningThreadId;
 
-	gThreads[gRunningThreadId]->incrementQuanta();
-	incrementGlobalQuanta();
+
 	int runningThread = gRunningThreadId;
 	gRunningThreadId = getNextThread();
 
@@ -181,17 +180,20 @@ void swapRunningThread(bool notToReady)
 	}
     gThreadsState[gRunningThreadId] = RUNNING;
 
- //   std::cout << "Swapped to " << gRunningThreadId << std::endl;
+//    std::cout << "Swapped to " << gRunningThreadId << std::endl;
 
     resetTimer();
 
-    unblockTimer();
 
+    gThreads[gRunningThreadId]->incrementQuanta();
+    incrementGlobalQuanta();
+    unblockTimer();
     siglongjmp(gThreads[gRunningThreadId]->getBuf(), 1);
 }
 
 void timer_handler(int sig)
 {
+
 	int res = saveCurrentState();
 //	std::cout << "timer handler" << std::endl;
     if (res != 0)
@@ -226,6 +228,7 @@ void initMainThread()
     gThreads[MAIN_THREAD_ID] = new Thread(MAIN_THREAD_ID, NULL,ORANGE);
     gRunningThreadId = MAIN_THREAD_ID;
     gThreadsState[gRunningThreadId] = RUNNING;
+    gThreads[MAIN_THREAD_ID]->incrementQuanta();
     ++gNumOfThreads;
     ++gTotalQuanta;
 }
@@ -245,7 +248,6 @@ int uthread_init(int quantum_usecs)
         std::cerr << "system error: Setting timer handler failed.\n";
         exit(1);
     }
-
     initThreadStates();
     initMainThread();
 
@@ -408,9 +410,9 @@ int uthread_suspend(int tid)
             break;
         case READY:
             removeThreadFromReady(tid, gThreads[tid]->getPriority());
+            gThreadsState[tid] = BLOCKED;
             break;
     }
-    gThreadsState[tid] = BLOCKED;
     unblockTimer();
     return 0;
 }
