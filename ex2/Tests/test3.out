@@ -1,1 +1,15 @@
-system error: Setting timer interval failed.
+thread library error: Cannot terminate a non existing thread (id: -1)
+thread library error: Cannot suspend a non existing thread (id: -1)
+thread library error: Cannot resume a non existing thread (id: -1)
+thread library error: Cannot get time for a non existing thread (id: -1)
+thread library error: Cannot terminate a non existing thread (id: 1)
+thread library error: Cannot suspend a non existing thread (id: 1)
+thread library error: Cannot resume a non existing thread (id: 1)
+thread library error: Cannot get time for a non existing thread (id: 1)
+thread library error: Cannot suspend the main thread (id: 0)
+thread library error: Cannot terminate a non existing thread (id: 1)
+thread library error: Cannot suspend a non existing thread (id: 1)
+thread library error: Cannot resume a non existing thread (id: 1)
+thread library error: Cannot get time for a non existing thread (id: 1)
+thread library error: quantum duration must be greater than 0
+thread library error: quantum duration must be greater than 0

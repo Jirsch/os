@@ -6,7 +6,7 @@
 #define THREAD_H_
 
 #define NOT_BLOCKED -1
-#define START 1
+
 
 #include <setjmp.h>
 #include "uthreads.h"

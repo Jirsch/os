@@ -9,7 +9,7 @@
 # C
 **/*.o
 **/*.a
-**/Tests/test*
+**/Tests/*.out
 **/*.swp
 **/*.swo
 

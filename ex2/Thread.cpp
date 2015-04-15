@@ -4,7 +4,7 @@
 
 
 #include "Thread.h"
-
+#define START 0
 #ifdef __x86_64__
 /* code for 64 bit Intel arch */
 
