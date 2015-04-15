@@ -88,12 +88,12 @@ void resetTimer()
 {
     struct itimerval tv;
 	int quantumSec = gQuantumUsecs / TO_SEC;
-	gQuantumUsecs = gQuantumUsecs % TO_SEC;
+	int quantumUsecs = gQuantumUsecs % TO_SEC;
 
     tv.it_value.tv_sec = quantumSec;  /* first time interval, seconds part */
-    tv.it_value.tv_usec = gQuantumUsecs; /* first time interval, microseconds part */
+    tv.it_value.tv_usec = quantumUsecs; /* first time interval, microseconds part */
     tv.it_interval.tv_sec = quantumSec;  /* following time intervals, seconds part */
-    tv.it_interval.tv_usec = gQuantumUsecs; /* following time intervals, microseconds part */
+    tv.it_interval.tv_usec = quantumUsecs; /* following time intervals, microseconds part */
 
     if (setitimer(ITIMER_VIRTUAL, &tv, NULL)!=SYSTEM_CALL_OK)
     {
@@ -166,7 +166,6 @@ void swapRunningThread(bool notToReady)
 {
 //	std::cout << "Swap from " << gRunningThreadId;
 
-
 	int runningThread = gRunningThreadId;
 	gRunningThreadId = getNextThread();
 
@@ -174,7 +173,7 @@ void swapRunningThread(bool notToReady)
 	{
 		gRunningThreadId = runningThread;
 	}
-	if (!notToReady)
+	else if (!notToReady)
 	{
 		moveToReady(runningThread);
 	}
@@ -439,20 +438,7 @@ int uthread_resume(int tid)
         case READY:
             break;
         case BLOCKED:
-            switch (gThreads[tid]->getPriority())
-            {
-                case RED:
-                    gRedThreads.push_back(tid);
-                    break;
-                case ORANGE:
-                    gOrangeThreads.push_back(tid);
-                    break;
-                case GREEN:
-                    gGreenThreads.push_back(tid);
-                    break;
-            }
-
-            gThreadsState[tid] = READY;
+            moveToReady(tid);
             break;
     }
 

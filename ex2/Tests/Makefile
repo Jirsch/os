@@ -57,8 +57,29 @@ test5: test5.o ../uthreads.o ../Thread.o
 	$(CC) test5.o ../Thread.o ../uthreads.o -o test5
 	./test5 > test5.out 2>&1
 	diff test5.out mytest5.out
-###	.test5
+
+tester10.o: ../uthreads.h ./tester10.cpp ../Thread.h
+	$(CC) -c ./tester10.cpp
+
+test6: tester10.o ../uthreads.o ../Thread.o
+	$(CC) tester10.o ../Thread.o ../uthreads.o -o test6
+	test6
 	
+#	./test6 > test6.out 2>&1
+	
+#test6: tester2.o ../uthreads.o ../Thread.o
+#	$(CC) tester2.o ../Thread.o ../uthreads.o -o test6
+#	./test6 > test6.out 2>&1
+#
+#test6: tester2.o ../uthreads.o ../Thread.o
+#	$(CC) tester2.o ../Thread.o ../uthreads.o -o test6
+#	./test6 > test6.out 2>&1
+#	
+#test6: tester2.o ../uthreads.o ../Thread.o
+#	$(CC) tester2.o ../Thread.o ../uthreads.o -o test6
+#	./test6 > test6.out 2>&1
+	
+		
 lib: test1.o test2.o test3.o test4.o test5.o clean
 	$(CC) test1.o ../libuthreads.a -o test1
 	$(CC) test2.o ../libuthreads.a -o test2
