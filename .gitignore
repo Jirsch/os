@@ -5,3 +5,11 @@
 **/.cproject
 **/.project
 **/.metadata
+
+# C
+**/*.o
+**/*.a
+**/Tests/*.out
+**/*.swp
+**/*.swo
+

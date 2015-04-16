@@ -1,12 +1,12 @@
-CC=gcc
+CC=g++
 RANLIB=ranlib
 
-LIBSRC=Thread.cpp,uthreads.cpp
-LIBHEADER=Thread.h,uthreads.h
+LIBSRC=Thread.cpp uthreads.cpp
+LIBHEADER=Thread.h uthreads.h
 LIBOBJ=$(LIBSRC:.cpp=.o)
 
 INCS=-I.
-CFLAGS = -Wall -g $(INCS)
+CFLAGS = -Wall -g -std=c++11 $(INCS) 
 LOADLIBES = -L./
 
 UTHREADSLIB = libuthreads.a
@@ -20,14 +20,14 @@ TARSRCS=$(LIBSRC) Makefile README
 all: $(TARGETS)
 
 $(TARGETS): $(LIBOBJ)
-$(AR) $(ARFLAGS) $@ $^
-$(RANLIB) $@
+	$(AR) $(ARFLAGS) $@ $^
+	$(RANLIB) $@
 
 clean:
-$(RM) $(TARGETS) $(UTHREADSLIB) $(OBJ) $(LIBOBJ) *~ *core
+	$(RM) $(TARGETS) $(UTHREADSLIB) $(OBJ) $(LIBOBJ) *~ *core
 
 depend:
-makedepend -- $(CFLAGS) -- $(SRC) $(LIBSRC)
+	makedepend -- $(CFLAGS) -- $(SRC) $(LIBSRC)
 
 tar:
-$(TAR) $(TARFLAGS) $(TARNAME) $(TARSRCS)
+	$(TAR) $(TARFLAGS) $(TARNAME) $(TARSRCS)

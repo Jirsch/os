@@ -13,14 +13,20 @@
 #include <algorithm>
 #include <iostream>
 
+
+#define LIB_ERR_MSG "thread library error: "
+#define SYS_ERR_MSG "system error: "
+#define TO_SEC 1000000
+#define NO_THREADS -1
+#define SUCCESS 0
+#define FAILURE -1
+
 enum State
 {
     READY, RUNNING, BLOCKED, NOT_EXIST
 };
 
-
 using std::list;
-using std::queue;
 using std::priority_queue;
 
 static const int SYSTEM_CALL_OK = 0;
@@ -40,7 +46,7 @@ Thread *gThreads[MAX_THREAD_NUM];
 State gThreadsState[MAX_THREAD_NUM];
 
 // will hold the ID numbers that aren't in use
-priority_queue<int> gVacantTids;
+priority_queue<int, std::vector<int>, std::greater<int> > gVacantTids;
 
 // the lists containing the READY threads
 list<int> gRedThreads;
@@ -58,16 +64,24 @@ int getNextThread()
         nextId = gRedThreads.front();
         gRedThreads.pop_front();
     }
+
     else if (!gOrangeThreads.empty())
     {
         nextId = gOrangeThreads.front();
         gOrangeThreads.pop_front();
     }
-    else
+
+    else if(!gGreenThreads.empty())
     {
         nextId = gGreenThreads.front();
         gGreenThreads.pop_front();
     }
+
+    else
+    {
+    	nextId = NO_THREADS;
+    }
+
     return nextId;
 }
 
@@ -77,22 +91,35 @@ int getNextThread()
 void resetTimer()
 {
     struct itimerval tv;
-    tv.it_value.tv_sec = 0;  /* first time interval, seconds part */
-    tv.it_value.tv_usec = gQuantumUsecs; /* first time interval, microseconds part */
-    tv.it_interval.tv_sec = 0;  /* following time intervals, seconds part */
-    tv.it_interval.tv_usec = gQuantumUsecs; /* following time intervals, microseconds part */
+	int quantumSec = gQuantumUsecs / TO_SEC;
+	int quantumUsecs = gQuantumUsecs % TO_SEC;
 
-    if (setitimer(ITIMER_VIRTUAL, &tv, nullptr)!=SYSTEM_CALL_OK)
+    tv.it_value.tv_sec = quantumSec;  /* first time interval, seconds part */
+    tv.it_value.tv_usec = quantumUsecs; /* first time interval, microseconds part */
+    tv.it_interval.tv_sec = quantumSec;  /* following time intervals, seconds part */
+    tv.it_interval.tv_usec = quantumUsecs; /* following time intervals, microseconds part */
+
+    if (setitimer(ITIMER_VIRTUAL, &tv, NULL)!=SYSTEM_CALL_OK)
     {
-        std::cerr << "system error: Setting timer interval failed.\n";
+        std::cerr << SYS_ERR_MSG << "Setting timer interval failed.\n";
         exit(1);
     }
-
 }
 
+/*
+ * add one quantum to the global quanta
+ */
 void incrementGlobalQuanta()
 {
     ++gTotalQuanta;
+}
+
+/*
+* return true if the tid is available
+*/
+bool isVacant(int tid)
+{
+    return gThreadsState[tid] == NOT_EXIST;
 }
 
 /*
@@ -107,34 +134,46 @@ void moveToReady(int tid)
         case RED:
             gRedThreads.push_back(tid);
             break;
+
         case ORANGE:
             gOrangeThreads.push_back(tid);
             break;
+
         case GREEN:
             gGreenThreads.push_back(tid);
             break;
+
     }
 }
 
+/*
+ * saves the current state of running thread at the end of the quanta
+ */
 int saveCurrentState()
 {
     return sigsetjmp(gThreads[gRunningThreadId]->getBuf(), SAVE_SIGNAL_MASK);
 }
 
+/*
+ * blocks the timer from running
+ */
 void blockTimer()
 {
-    if ( sigprocmask(SIG_BLOCK,&gTimerSet, nullptr) != SYSTEM_CALL_OK )
+    if (sigprocmask(SIG_BLOCK,&gTimerSet, NULL) != SYSTEM_CALL_OK )
     {
-        std::cerr << "system error: Blocking timer signal failed.\n";
+        std::cerr << SYS_ERR_MSG << "Blocking timer signal failed.\n";
         exit(1);
     }
 }
 
+/*
+ * unblocks the timer and resume running
+ */
 void unblockTimer()
 {
-    if (sigprocmask(SIG_UNBLOCK,&gTimerSet, nullptr) != SYSTEM_CALL_OK)
+    if (sigprocmask(SIG_UNBLOCK,&gTimerSet, NULL) != SYSTEM_CALL_OK)
     {
-        std::cerr << "system error: Unblocking timer signal failed.\n";
+        std::cerr << SYS_ERR_MSG << "Unblocking timer signal failed.\n";
         exit(1);
     }
 }
@@ -142,37 +181,55 @@ void unblockTimer()
 /*
 * switches the RUNNING thread at the end of the round-robin quantum
 */
-void swapRunningThread(bool shouldUnblock)
+void swapRunningThread(bool notToReady)
 {
-    gRunningThreadId = getNextThread();
+
+	int runningThread = gRunningThreadId;
+
+	// finding the next available thread from the READY lists
+	gRunningThreadId = getNextThread();
+
+	// if the lists are empty the RUNNING thread continues to run
+	if(gRunningThreadId == NO_THREADS)
+	{
+		gRunningThreadId = runningThread;
+	}
+
+	else if (!notToReady)
+	{
+		moveToReady(runningThread);
+	}
+
     gThreadsState[gRunningThreadId] = RUNNING;
+
+    resetTimer();
 
     gThreads[gRunningThreadId]->incrementQuanta();
     incrementGlobalQuanta();
 
-    resetTimer();
-    if (shouldUnblock)
-    {
-        unblockTimer();
-    }
+    unblockTimer();
 
     siglongjmp(gThreads[gRunningThreadId]->getBuf(), 1);
 }
 
+/*
+ * this method is called after every loop of the timer
+ */
 void timer_handler(int sig)
 {
-    int res = saveCurrentState();
+	int res = saveCurrentState();
 
     if (res != 0)
     {
         return;
     }
 
-    moveToReady(gRunningThreadId);
-
     swapRunningThread(false);
 }
 
+/*
+ * initializing the global variables and Data-structures
+ */
 void initThreadStates()
 {
     gNumOfThreads=0;
@@ -181,7 +238,7 @@ void initThreadStates()
     gRedThreads.clear();
     gGreenThreads.clear();
     gOrangeThreads.clear();
-    gVacantTids = priority_queue<int>();
+    gVacantTids = priority_queue<int, std::vector<int>, std::greater<int> >();
 
     for (int i = 0; i < MAX_THREAD_NUM; ++i)
     {
@@ -192,12 +249,18 @@ void initThreadStates()
         }
     }
 }
-
+/*
+ * initialize the main thread, put in the RUNNING state and increment quanta
+ */
 void initMainThread()
 {
-    gThreads[MAIN_THREAD_ID] = new Thread(MAIN_THREAD_ID, nullptr,ORANGE);
+    gThreads[MAIN_THREAD_ID] = new Thread(MAIN_THREAD_ID, NULL,ORANGE);
+
     gRunningThreadId = MAIN_THREAD_ID;
+
     gThreadsState[gRunningThreadId] = RUNNING;
+
+    gThreads[MAIN_THREAD_ID]->incrementQuanta();
 
     ++gNumOfThreads;
     ++gTotalQuanta;
@@ -207,15 +270,15 @@ int uthread_init(int quantum_usecs)
 {
     if (quantum_usecs<=0)
     {
-        std::cerr << "thread library error: quantum duration must be greater than 0\n";
-        return -1;
+        std::cerr << LIB_ERR_MSG << "quantum duration must be greater than 0\n";
+        return FAILURE;
     }
 
     gQuantumUsecs = quantum_usecs;
 
     if (signal(SIGVTALRM, timer_handler) == SIG_ERR)
     {
-        std::cerr << "system error: Setting timer handler failed.\n";
+        std::cerr << SYS_ERR_MSG << "Setting timer handler failed.\n";
         exit(1);
     }
 
@@ -224,26 +287,28 @@ int uthread_init(int quantum_usecs)
 
     if ( sigemptyset(&gTimerSet) != SYSTEM_CALL_OK )
     {
-        std::cerr << "system error: Setting signal set failed.\n";
+        std::cerr << SYS_ERR_MSG << "Setting signal set failed.\n";
         exit(1);
     }
+
     if ( sigaddset(&gTimerSet, SIGVTALRM) != SYSTEM_CALL_OK )
     {
-        std::cerr << "system error: Setting signal set failed.\n";
+        std::cerr << SYS_ERR_MSG << "Setting signal set failed.\n";
         exit(1);
     }
 
     resetTimer();
 
-    return 0;
+    return SUCCESS;
 }
 
 int uthread_spawn(void (*f)(void), Priority pr)
 {
     blockTimer();
+
     if (gNumOfThreads >= MAX_THREAD_NUM)
     {
-        std::cerr << "thread library error: Thread count reached limit, cannot spawn a new one\n";
+        std::cerr << LIB_ERR_MSG << "Thread count reached limit, cannot spawn a new one\n";
         unblockTimer();
         return -1;
     }
@@ -261,13 +326,16 @@ int uthread_spawn(void (*f)(void), Priority pr)
 }
 
 /*
-* add the gived tid to the available ids list
+* add the given tid to the available ids list
 */
 void addVacantId(int tid)
 {
     gVacantTids.push(tid);
 }
 
+/*
+ * removes the given thread id from its READY list
+ */
 void removeThreadFromReady(const int tid, const Priority &pr)
 {
     switch (pr)
@@ -275,9 +343,11 @@ void removeThreadFromReady(const int tid, const Priority &pr)
         case GREEN:
             gGreenThreads.remove(tid);
             break;
+
         case ORANGE:
             gOrangeThreads.remove(tid);
             break;
+
         case RED:
             gRedThreads.remove(tid);
             break;
@@ -285,14 +355,16 @@ void removeThreadFromReady(const int tid, const Priority &pr)
 
 }
 
+/*
+ * delete the given thread and update the global vars
+ */
 void deleteThread(int tid)
 {
-
-/*
-* delete all existing threads
-*/    gThreadsState[tid] = NOT_EXIST;
+    gThreadsState[tid] = NOT_EXIST;
     delete gThreads[tid];
+
     addVacantId(tid);
+    gNumOfThreads--;
 }
 
 /*
@@ -309,10 +381,26 @@ void cleanThreadPool()
             case BLOCKED:
                 deleteThread(tid);
                 break;
+
             case NOT_EXIST:
                 break;
         }
     }
+}
+
+/*
+ * return the state of the given thread
+ */
+State getState(int tid)
+{
+	if (tid < 0 || tid > MAX_THREAD_NUM || isVacant(tid))
+	{
+		return NOT_EXIST;
+	}
+	else
+	{
+		return gThreadsState[tid];
+	}
 }
 
 int uthread_terminate(int tid)
@@ -323,105 +411,110 @@ int uthread_terminate(int tid)
         cleanThreadPool();
         exit(0);
     }
-    switch (gThreadsState[tid])
+
+    Priority pr;
+    State state = getState(tid);
+
+    if (state != NOT_EXIST)
+    {
+    	deleteThread(tid);
+    }
+
+    switch (state)
     {
         case NOT_EXIST:
-            std::cerr << "thread library error: Cannot terminate a non existing thread (id: " << tid << "\n";
+            std::cerr << LIB_ERR_MSG << "Cannot terminate a non existing thread (id: "
+            	<< tid << ")\n";
             unblockTimer();
-            return -1;
+            return FAILURE;
+
         case READY:
-            Priority pr = gThreads[tid]->getPriority();
+            pr = gThreads[tid]->getPriority();
             removeThreadFromReady(tid,pr);
             break;
+
         case RUNNING:
             swapRunningThread(true);
             break;
+
         case BLOCKED:
             break;
     }
 
-    deleteThread(tid);
     unblockTimer();
-    return 0;
-}
-
-/*
-* return true if the tid is available
-*/
-bool isVacant(int tid)
-{
-    return gThreadsState[tid] == NOT_EXIST;
+    return SUCCESS;
 }
 
 int uthread_suspend(int tid)
 {
     blockTimer();
+
     if (tid == MAIN_THREAD_ID)
     {
-        std::cerr << "thread library error: Cannot suspend the main thread (id: " << tid << "\n";
+        std::cerr << LIB_ERR_MSG << "Cannot suspend the main thread (id: " << tid << ")\n";
         unblockTimer();
-        return -1;
+        return FAILURE;
     }
-    if (tid == isVacant(tid))
+
+    if (tid < 0 || isVacant(tid))
     {
-        std::cerr << "thread library error: Cannot suspend a non existing thread (id: " << tid << "\n";
+        std::cerr << LIB_ERR_MSG << "Cannot suspend a non existing thread (id: " << tid << ")\n";
         unblockTimer();
-        return -1;
+        return FAILURE;
     }
+
+    int res;
 
     switch (gThreadsState[tid])
     {
         case BLOCKED:
             break;
+
         case RUNNING:
-            int res = saveCurrentState();
+        	// if the RUNNING thread suspends itself
+        	gThreadsState[tid] = BLOCKED;
+            res = saveCurrentState();
+
             if (res == 0)
             {
                 swapRunningThread(true);
             }
+
             break;
+
         case READY:
             removeThreadFromReady(tid, gThreads[tid]->getPriority());
+            gThreadsState[tid] = BLOCKED;
             break;
     }
-    
-    gThreadsState[tid] = BLOCKED;
+
     unblockTimer();
-    return 0;
+    return SUCCESS;
 }
 
 int uthread_resume(int tid)
 {
     blockTimer();
-    switch (gThreadsState[tid])
+    State state = getState(tid);
+
+    switch (state)
     {
         case NOT_EXIST:
-            std::cerr << "thread library error: Cannot resume a non existing thread (id: " << tid << "\n";
+            std::cerr << LIB_ERR_MSG << "Cannot resume a non existing thread (id: " << tid << ")\n";
             unblockTimer();
-            return -1;
+            return FAILURE;
+
         case RUNNING:
         case READY:
             break;
-        case BLOCKED:
-            switch (gThreads[tid]->getPriority())
-            {
-                case RED:
-                    gRedThreads.push_back(tid);
-                    break;
-                case ORANGE:
-                    gOrangeThreads.push_back(tid);
-                    break;
-                case GREEN:
-                    gGreenThreads.push_back(tid);
-                    break;
-            }
 
-            gThreadsState[tid] = READY;
+        case BLOCKED:
+            moveToReady(tid);
             break;
     }
 
     unblockTimer();
-    return 0;
+    return SUCCESS;
 }
 
 int uthread_get_tid()
@@ -436,16 +529,16 @@ int uthread_get_total_quantums()
 
 int uthread_get_quantums(int tid)
 {
-    switch (gThreadsState[tid])
+    State state = getState(tid);
+
+    switch (state)
     {
         case NOT_EXIST:
-            std::cerr << "thread library error: Cannot get time for a non existing thread (id: " << tid << "\n";
-            return -1;
+            std::cerr << LIB_ERR_MSG << "Cannot get time for a non existing thread (id: "
+            	<< tid << ")\n";
+            return FAILURE;
+
         default:
             return gThreads[tid]->getQuanta();
     }
 }
-
-
-
-
