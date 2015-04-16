@@ -1,0 +1,24 @@
+orenbm21, jirsch
+Oren Ben-Meir (200143139), Jonathan Hirsch (200357697)
+EX: 2
+
+FILES:
+Thread.cpp - Code for Thread class, used to store thread specific info (buffer, stack, etc.)
+Thread.h - Declare the thread class
+uthreads.h - Declaration of library functions
+uthreads.cpp - implementation of user threads library.
+Makefile
+README
+
+REMARKS:
+
+ANSWERS:
+1. RR has a pro in that that it is fair and prevents starvation, but has
+a con in the fact that it offer no option for high priority actions (such as
+listen to user input, or network activity). On the other hand, PQ has the two reversed,
+the low priority thread would suffer extreme starvation which is a con, but at the
+same time high priority actions will receive all the resources they will need which
+is a pro.
+
+2. Saving a file after editing will imply blocking the thread until the write
+confirmation of the buffer is received.
