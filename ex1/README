@@ -1,0 +1,73 @@
+orenbm21, jirsch
+Oren Ben-Meir (200143139), Jonathan Hirsch (200357697)
+EX: 1
+
+FILES:
+osm.cpp -- a file with the main code of the program. Functions defined in osm.h
+makefile
+README (this)
+
+ANSWERS:
+
+Task 1:
+
+running the command "strace WhatIDo" gave us the following "interesting" lines: 
+
+dup(2)                                  = 3
+fcntl(3, F_GETFL)                       = 0x8002 (flags O_RDWR|O_LARGEFILE)
+brk(0)                                  = 0x2369000
+brk(0x238a000)                          = 0x238a000
+fstat(3, {st_mode=S_IFCHR|0620, st_rdev=makedev(136, 0), ...}) = 0
+mmap(NULL, 4096, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x7f987410f000
+lseek(3, 0, SEEK_CUR)                   = -1 ESPIPE (Illegal seek)
+write(3, "Only a single argument is suppor"..., 36Only a single argument is supported
+) = 36
+write(3, ": Success\n", 10: Success
+)             = 10
+close(3)                                = 0
+
+these lines indicate that there was an error and the program wrote to fd 3 (duplicated from the standard error)
+that only a single argument is supported.
+
+running the command "strace WhatIDo argument" gave us the following "interesting" lines: 
+
+mkdir("os", 0775)                       = 0
+mkdir("os/2015", 0775)                  = 0
+brk(0)                                  = 0x1168000
+brk(0x1189000)                          = 0x1189000
+open("os/2015/info", O_WRONLY|O_CREAT|O_TRUNC, 0666) = 3
+fstat(3, {st_mode=S_IFREG|0644, st_size=0, ...}) = 0
+mmap(NULL, 65536, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x7f0f3ee47000
+write(3, "                                "..., 127) = 127
+close(3)                                = 0
+munmap(0x7f0f3ee47000, 65536)           = 0
+unlink("os/2015/info")                  = 0
+rmdir("os/2015/")                       = 0
+rmdir("os/")                            = 0
+
+these lines indicate that the program created a folder named "os", a sub-folder named "2015" and inside that sub-folder
+created the file "info" with read/write permissions for all levels. using "mmap" the program allocated memory, wrote to fd 3 (119 + argument length) blank spaces
+and closed the fd. then the program deallocated memory and removed the file "info" and the folders "2015" and "os".
+
+Task 2:
+
+1) a. If two programs are trying to write to the same file and one of them is interrupted (let's say that the first one),
+then the current state of the process is saved for the first one. meanwhile the other program is still writing to the file.
+Later on, the state is restored and all the work of the second program is ruined.
+
+b. Let's say we have a time-based program and at some point it is interrupted. After some time the state is restored, 
+but the time that has passed between the interruption and the restore will not match the time-based program run.
+
+2) this is a terrible idea! If a program will run without interruptions from os it will probably not run correctly.
+For instance, if Word will run without interruptions from os we could not close it, write or highlight text (and other actions).
+
+Task 3:
+
+The first 3 library functions are built in a very similar way. At first we define the number of loops for the loop unrolling, 
+which is done by calculating the remainder of osm_iterations / NUM_OF_ACTIONS (in each loop) and rounding up if needed.
+After that we use gettimeofday to know how much time did the actions take - each function with its action (instruction, function call 
+and trap).
+
+The last and main library function - measureTimes is built in the following way: initializing a timeMeasurmentStructure, 
+defining its numberOfIterations which is the ACTUAL number of iterations and the rest of its fields (besides host name) are
+calculated by the library functions explained above.

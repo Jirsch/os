@@ -1,5 +1,6 @@
 # CLion
 **/.idea
+**/CMakeLists.txt
 
 # Eclipse
 **/.cproject
@@ -7,6 +8,7 @@
 **/.metadata
 
 # C
+**/*.tar
 **/*.o
 **/*.a
 **/Tests/*.out
