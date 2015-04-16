@@ -1,7 +1,12 @@
-//
-// Created by Jonathan Hirsch on 3/28/15.
-//
-
+/*   *--------------------------------------------------------------------------------------------*
+* 											OS (2015) - Ex2
+*
+* 		Name : Thread.h
+* 		General : Class representing a Thread. Each Thread has ID, priority, stack, state,
+* 		environment to save its status and the number of quantums that were started for the thread.
+*
+*    *--------------------------------------------------------------------------------------------*
+*/
 
 #include "Thread.h"
 #define START 0
@@ -47,37 +52,32 @@ address_t translate_address(address_t addr)
 
 Thread::Thread(int tid, void (*func)(void), Priority pr)
 {
-    this->f = func;
-    this->tid = tid;
-    this->pr = pr;
-    this->quantumsFinished = START;
+    _f = func;
+    _tid = tid;
+    _pr = pr;
+    _quantumsFinished = START;
 
-    if (f != NULL)
+    if (_f != NULL)
     {
         address_t sp, pc;
-        sp = (address_t) stack + STACK_SIZE - sizeof(address_t);
-        pc = (address_t) f;
+        sp = (address_t) _stack + STACK_SIZE - sizeof(address_t);
+        pc = (address_t) _f;
 
-        (this->buf->__jmpbuf)[JB_SP] = translate_address(sp);
-        (this->buf->__jmpbuf)[JB_PC] = translate_address(pc);
-        sigemptyset(&this->buf->__saved_mask);
+        (_buf->__jmpbuf)[JB_SP] = translate_address(sp);
+        (_buf->__jmpbuf)[JB_PC] = translate_address(pc);
+        sigemptyset(&_buf->__saved_mask);
     }
 }
 
 Thread::Thread(const Thread &rhs)
 {
-    this->f = rhs.f;
-    this->tid = rhs.tid;
-    this->pr = rhs.pr;
-    this->quantumsFinished = rhs.quantumsFinished;
+    _f = rhs._f;
+    _tid = rhs._tid;
+    _pr = rhs._pr;
+    _quantumsFinished = rhs._quantumsFinished;
 
-    strncpy(this->stack, rhs.stack, STACK_SIZE);
+    strncpy(_stack, rhs._stack, STACK_SIZE);
 }
-
-//bool Thread::operator==(const Thread &thread, int id)
-//{
-//    return (thread.tid == id);
-//}
 
 Thread &Thread::operator=(const Thread &rhs)
 {
@@ -85,12 +85,13 @@ Thread &Thread::operator=(const Thread &rhs)
     {
         return *this;
     }
-    this->f = rhs.f;
-    this->tid = rhs.tid;
-    this->pr = rhs.pr;
-    this->quantumsFinished = rhs.quantumsFinished;
 
-    strncpy(this->stack, rhs.stack, STACK_SIZE);
+    _f = rhs._f;
+    _tid = rhs._tid;
+    _pr = rhs._pr;
+    _quantumsFinished = rhs._quantumsFinished;
+
+    strncpy(_stack, rhs._stack, STACK_SIZE);
 
     return *this;
 }
@@ -101,5 +102,5 @@ Thread::~Thread()
 
 void Thread::incrementQuanta()
 {
-    ++(this->quantumsFinished);
+    ++(_quantumsFinished);
 }
