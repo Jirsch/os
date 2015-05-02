@@ -20,6 +20,7 @@ private:
     bool _inited;
     bool _closing;
 
+
     // will hold the Block numbers that aren't in use
     priority_queue <int, std::vector<int>, std::greater<int>> _VacantBlockNums;
     int _currentBlockNum;
@@ -103,6 +104,17 @@ void *BlockChain::addBlock(void *args)
 
     // adding the new block to it's predecessor's successors list
     block->getPredecessor()->addSuccessor(block);
+
+    // updating the _endOfLongest block
+//    if (block->getChainLength() > _endOfLongest->getChainLength())
+//    {
+//        _endOfLongest = block;
+//    }
+
+    if (block->getPredecessor() == _endOfLongest)
+    {
+        _endOfLongest = block;
+    }
 }
 
 int BlockChain::addBlock(char *data, int length)
@@ -114,7 +126,7 @@ int BlockChain::addBlock(char *data, int length)
     pthread thread;
     int result = pthread_create(&thread, NULL, addBlock, newBlockData);
 
-    // if the creation of the thread failed return -1
+    // if the creation of the thread failed return FAILURE
     if (result != 0) {
         return FAILURE;
     }

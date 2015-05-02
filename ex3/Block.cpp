@@ -9,6 +9,17 @@ Block::Block(int blockNum, Block *predecessor) {
     _predecessor = predecessor;
     _hashedData = NULL;
     _successors = list<Block*>();
+
+//    if  (isGenesis())
+//    {
+//        _chainLength = 0;
+//    }
+//    _chainLength = predecessor->getChainLength() + 1;
+}
+
+bool Block::isGenesis()
+{
+    return getPredecessor() == NULL;
 }
 
 Block *Block::getPredecessor() {
