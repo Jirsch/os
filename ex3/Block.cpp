@@ -5,10 +5,10 @@
 #include "Block.h"
 
 Block::Block(int blockNum, Block *predecessor) {
+    _blockNum = blockNum;
     _predecessor = predecessor;
     _hashedData = NULL;
-    _successors = NULL;
-    _blockNum = blockNum;
+    _successors = list<Block*>();
 }
 
 Block *Block::getPredecessor() {
@@ -22,4 +22,9 @@ Block::~Block() {
             delete *iterator;
         }
     }
+}
+
+void Block::addSuccessor(Block *toAdd)
+{
+    this->_successors.push_back(toAdd);
 }

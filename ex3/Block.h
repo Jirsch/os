@@ -31,7 +31,18 @@ public:
 
     Block* getPredecessor();
 
+    void addSuccessor(Block* toAdd);
 
+
+    void setHashedData(char *hashedData)
+    {
+        _hashedData = hashedData;
+    }
+
+    int getBlockNum() const
+    {
+        return _blockNum;
+    }
 };
 
 
