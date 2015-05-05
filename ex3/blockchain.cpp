@@ -14,14 +14,16 @@
 #define FAILURE -1
 
 using std::vector;
-using std::priority_queue;
 
 class BlockChain
 {
 
 private:
+
+    // blocks that are in the end of the longest chains
     vector<Block *> _longestChains;
 
+    // blocks that are waiting to be attached
     vector<Block *> _pendingBlocks;
 
     Block *_genesis;
@@ -36,16 +38,31 @@ private:
 
     int getMinVacantNum();
 
+    /*
+     * returns a random block from one of the longest chains
+     */
     Block *getRandomLongestChain();
 
     void *addBlock(void *args);
 
+    /*
+     * return true if the given block is in the end of one of the longest chains, false otherwise
+     */
     bool isInLongestChain(Block *block);
 
+    /*
+     * hash a block's data, given it's predecessor's block num, it's data and data length
+     */
     char *hashBlockData(int blockNum, int predecessorBlockNum, dataToHash, dataLength);
 
+    /*
+     * construct a new block with it's number and predecessor
+     */
     Block *buildNewBlock();
 
+    /*
+     * return true if the given block is attached to the BlockChain, false otherwise
+     */
     bool isAttached(int blockNum);
 
 
@@ -93,7 +110,7 @@ int BlockChain::getMinVacantNum()
         int minVacantNum = _currentBlockNum;
 
         // finding the minimum vacant number
-        for (std::vector<int>::iterator it = _vacantBlockNums.begin();
+        for (vector<int>::iterator it = _vacantBlockNums.begin();
              it != _vacantBlockNums.end(); ++it) {
             if (*it < minVacantNum) {
                 minVacantNum = *it;
@@ -104,7 +121,7 @@ int BlockChain::getMinVacantNum()
         blockNum = minVacantNum;
 
         // removing the minimum number from the vector
-        for (std::vector<int>::iterator it = _vacantBlockNums.begin();
+        for (vector<int>::iterator it = _vacantBlockNums.begin();
              it != _vacantBlockNums.end(); ++it) {
             if (*it == minVacantNum) {
                 _vacantBlockNums.erase(it);
@@ -113,17 +130,24 @@ int BlockChain::getMinVacantNum()
     }
 
     else {
+
+        // there are no vacant numbers lower than the current one
         blockNum = ++this->_currentBlockNum; // verify that this works
     }
+
     return blockNum;
 }
 
+/*
+ * wrapping a new block with it's dataToHash
+ */
 typedef struct NewBlockData
 {
     Block *_block;
     char *_dataToHash;
     int _dataLength;
 
+    // constructor
     NewBlockData(Block *block, char *dataToHash) : _block(
             block), _dataLength(dataLength)
     {
@@ -135,15 +159,16 @@ typedef struct NewBlockData
 bool BlockChain::isAttached(int blockNum)
 {
     bool isVacant = false;
+
+    // looking for the given blockNum in the vector
     if (std::find(_vacantBlockNums.begin(), _vacantBlockNums.end(), blockNum) !=
-        _vacantBlockNums.end())
-    {
+        _vacantBlockNums.end()) {
         isVacant = true;
     }
 
+    // will be true if the given blockNum is lower than the current one and is not vacant
     return blockNum <= _currentBlockNum && !isVacant;
 }
-
 
 bool BlockChain::isInLongestChain(Block *block)
 {
@@ -160,11 +185,6 @@ char *BlockChain::hashBlockData(int blockNum, int predecessorBlockNum, dataToHas
 
 void *BlockChain::addBlock(void *args)
 {
-//
-//    // constructing a new block
-//    Block *block = new Block(data->_blockNum, data->_predecessor); // todo: delete
-
-    //   Block* block = (Block*) args;
     NewBlockData *blockData = (NewBlockData *) args;
 
     // hashing the data
@@ -172,12 +192,11 @@ void *BlockChain::addBlock(void *args)
                                blockData->_block->getPredecessor()->getBlockNum(),
                                blockData->_dataToHash, blockData->_dataLength);
 
-    // checking if the block should be attached to the longest chain
+    // checking if the block's predecessor should be switched to the real-time longest chain
     if (blockData->_block->isToLongest() &&
         !isInLongestChain(blockData->_block->getPredecessor())) {
 
         // todo: block other threads
-
 
         // find a new predecessor
         Block *predecessor = getRandomLongestChain();
@@ -202,6 +221,9 @@ void *BlockChain::addBlock(void *args)
         _longestChains.clear();
         _longestChains.push_back(blockData->_block);
     }
+
+    // todo: removing the block from the pending vector
+
 }
 
 Block *BlockChain::getRandomLongestChain()
@@ -215,7 +237,6 @@ Block *BlockChain::buildNewBlock()
     int blockNum = getMinVacantNum();
 
     // finding the predecessor of the new block
-    int chainIdx = getRandomLongestChain();
     Block *predecessor = getRandomLongestChain();
 
     // constructing a new block
@@ -227,13 +248,13 @@ int BlockChain::addBlock(char *data, int length)
     // constructing a new block
     Block *block = buildNewBlock();
 
-    // constructing the struct that holds the block and its data to hash
+    // constructing the struct that wraps the block and its dataToHash
     NewBlockData *newBlockData = new NewBlockData(block, data, length);    // todo: delete
 
     // pushing the new block to the pending blocks' vector
     _pendingBlocks.push_back(newBlockData);
 
-    // in other thread- hash data, attach new block to predecessor, insert new block
+    // in another thread- hash data, attach new block to predecessor, insert new block
     // into predecessor's successors
     pthread_t thread;
     int result = pthread_create(&thread, NULL, addBlock, newBlockData);
@@ -252,7 +273,6 @@ void BlockChain::init()
     _longestChains.push_back(_genesis);
     _chainSize = 0;
     _currentBlockNum = 0;
-//    _vacantBlockNums = priority_queue < int, std::vector < int >, std::greater < int >> ();
     _vacantBlockNums = vector<int>();
     _inited = true;
     _closing = false;
@@ -288,7 +308,7 @@ int add_block(char *data, int length)
 int to_longest(int block_num)
 {
     // checking if the block is waiting to be attached
-    for (std::vector<Block *>::iterator it = gChain->getPendingBlocks().begin();
+    for (vector<Block *>::iterator it = gChain->getPendingBlocks().begin();
          it != gChain->getPendingBlocks().end(); ++it) {
 
         Block *pendingBlock = (Block *) *it;
@@ -300,15 +320,12 @@ int to_longest(int block_num)
     }
 
     // checking if the block is already attached
-    if (gChain->isAttached(block_num))
-    {
+    if (gChain->isAttached(block_num)) {
         return 1;
     }
-        // does not exist - todo: verify
-    else
-    {
-        return -2;
-    }
+
+    // the blockNum does not exist - todo: verify
+    return -2;
 }
 
 int attach_now(int block_num);

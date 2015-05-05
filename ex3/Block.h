@@ -16,6 +16,8 @@ private:
     list<Block*> _successors;
     int _blockNum;
     int _chainLength;
+
+    // indicates if the block should be attached to the real-time longest chain
     bool _toLongest;
 public:
 
