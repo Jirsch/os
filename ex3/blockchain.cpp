@@ -1,5 +1,5 @@
 //
-// Created by orenbm21 on 5/2/2015.
+// Author: orenbm, jirsch
 //
 
 #include "Block.h"
@@ -8,6 +8,8 @@
 #include <pthread.h>
 #include <vector>
 #include <queue>
+#include <stdlib.h>
+#include <time.h>
 
 #define FAILURE -1
 
@@ -18,7 +20,7 @@ class BlockChain
 {
 
 private:
-    Block *_endOfLongest;
+    vector<Block *> _longestChains;
     Block *_genesis;
     int _chainSize;
     bool _inited;
@@ -26,7 +28,7 @@ private:
 
 
     // will hold the Block numbers that aren't in use
-    priority_queue <int, std::vector<int>, std::greater<int>> _VacantBlockNums;
+    priority_queue <int, std::vector<int>, std::greater<int>> _vacantBlockNums;
     int _currentBlockNum;
 
     int getMinVacantNum();
@@ -59,15 +61,16 @@ int BlockChain::getChainSize() const
 
 BlockChain::BlockChain()
 {
+    srand(time(NULL));
     init();
 }
 
 int BlockChain::getMinVacantNum()
 {
     int blockNum;
-    if (!this->_VacantBlockNums.empty()) {
-        blockNum = this->_VacantBlockNums.top();
-        this->_VacantBlockNums.pop();
+    if (!this->_vacantBlockNums.empty()) {
+        blockNum = this->_vacantBlockNums.top();
+        this->_vacantBlockNums.pop();
     }
 
     else {
@@ -109,21 +112,22 @@ void *BlockChain::addBlock(void *args)
     // adding the new block to it's predecessor's successors list
     block->getPredecessor()->addSuccessor(block);
 
-    // updating the _endOfLongest block
-//    if (block->getChainLength() > _endOfLongest->getChainLength())
-//    {
-//        _endOfLongest = block;
-//    }
 
-    if (block->getPredecessor() == _endOfLongest)
+    if (block->getChainLength() == _longestChains[0]->getChainLength())
     {
-        _endOfLongest = block;
+        _longestChains.push_back(block);
+    }
+    else if (block->getChainLength() > _longestChains[0]->getChainLength())
+    {
+        _longestChains.clear();
+        _longestChains.push_back(block);
     }
 }
 
 int BlockChain::addBlock(char *data, int length)
 {
-    NewBlockData *newBlockData = new NewBlockData(_endOfLongest, getMinVacantNum(), data, length);
+    int chainIdx = rand() % _longestChains.size();
+    NewBlockData *newBlockData = new NewBlockData( _longestChains[chainIdx] , getMinVacantNum(), data, length);
 
     // in other thread- create block, hash data, attach new block to predecessor, insert new block
     // into predecessor's successors
@@ -141,13 +145,18 @@ int BlockChain::addBlock(char *data, int length)
 void BlockChain::init()
 {
     _genesis = new Block(0, NULL); // TODO: delete
-    _endOfLongest = _genesis;
+    _longestChains.push_back(_genesis);
     _chainSize = 0;
     _currentBlockNum = 0;
-    _VacantBlockNums = priority_queue<int, std::vector<int>, std::greater<int>>();
+    _vacantBlockNums = priority_queue<int, std::vector<int>, std::greater<int>>();
     _inited = true;
     _closing = false;
 }
+
+// ****************
+// End of class implementation
+// Start of library
+// ****************
 
 BlockChain *gChain;
 

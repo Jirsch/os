@@ -15,7 +15,7 @@ private:
     Block* _predecessor;
     list<Block*> _successors;
     int _blockNum;
-//    int _chainLength;
+    int _chainLength;
 public:
 
     /*
@@ -23,10 +23,10 @@ public:
      */
     Block(int blockNum, Block* predecessor);
 
-//    int getChainLength() const
-//    {
-//        return _chainLength;
-//    }
+    int getChainLength() const
+    {
+        return _chainLength;
+    }
 
 /*
      * deletes all the successors by calling their "delete" method

@@ -10,11 +10,11 @@ Block::Block(int blockNum, Block *predecessor) {
     _hashedData = NULL;
     _successors = list<Block*>();
 
-//    if  (isGenesis())
-//    {
-//        _chainLength = 0;
-//    }
-//    _chainLength = predecessor->getChainLength() + 1;
+    if  (isGenesis())
+    {
+        _chainLength = 0;
+    }
+    _chainLength = predecessor->getChainLength() + 1;
 }
 
 bool Block::isGenesis()
@@ -28,7 +28,7 @@ Block *Block::getPredecessor() {
 
 Block::~Block() {
     if (!_successors.empty()) {
-        for (list<int>::const_iterator iterator = _successors.begin(), end = _successors.end();
+        for (list<Block*>::const_iterator iterator = _successors.begin(), end = _successors.end();
              iterator != end; ++iterator) {
             delete *iterator;
         }
