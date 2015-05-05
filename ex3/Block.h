@@ -16,6 +16,7 @@ private:
     list<Block*> _successors;
     int _blockNum;
     int _chainLength;
+    bool _toLongest;
 public:
 
     /*
@@ -40,6 +41,16 @@ public:
 
     void addSuccessor(Block* toAdd);
 
+
+    void setToLongest(bool toLongest)
+    {
+        _toLongest = toLongest;
+    }
+
+    bool isToLongest() const
+    {
+        return _toLongest;
+    }
 
     void setHashedData(char *hashedData)
     {

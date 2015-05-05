@@ -9,7 +9,7 @@ Block::Block(int blockNum, Block *predecessor) {
     _predecessor = predecessor;
     _hashedData = NULL;
     _successors = list<Block*>();
-
+    _toLongest = false;
     if  (isGenesis())
     {
         _chainLength = 0;
