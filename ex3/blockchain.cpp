@@ -17,6 +17,9 @@
 using std::vector;
 using std::list;
 
+//TODO: invert ifInited ifs
+//TODO: check lock return values
+
 class BlockChain
 {
 
@@ -84,6 +87,8 @@ class BlockChain
     int addBlock(char *data, int length);
 
     int toLongest(int blockNum);
+
+    int attachNow(int blockNum);
 
     bool isClosing() const
     {
@@ -362,7 +367,7 @@ int BlockChain::toLongest(int blockNum)
             }
         }
 
-        pthread_mutex_unlock(&_pendingLock); //TODO: ok?
+        pthread_mutex_unlock(&_pendingLock); //TODO: is this locking ok?
     }
     else
     {
@@ -370,6 +375,52 @@ int BlockChain::toLongest(int blockNum)
     }
 
     return returnVal;
+}
+
+int BlockChain::attachNow(int blockNum)
+{
+    int returnVal;
+
+    //TODO: make sure blockNUm is valid
+    if (isInited())
+    {
+        pthread_mutex_lock(&_pendingLock);
+
+        // checking if the block is already attached
+        if (isAttached(blockNum))
+        {
+            returnVal = 0;
+        }
+        else
+        {
+            // the blockNum does not exist, unless in pending - todo: verify
+            returnVal = -2;
+        }
+
+        for (list<NewBlockData *>::iterator it = getPendingBlocks()->begin();
+             it != getPendingBlocks()->end(); ++it)
+        {
+            NewBlockData *pendingBlockData = (NewBlockData *) *it;
+
+            if (pendingBlockData->_block->getBlockNum() == blockNum)
+            {
+                // move blockData to front of pending queue
+                getPendingBlocks()->erase(it);
+                getPendingBlocks()->push_front(pendingBlockData);
+                returnVal = 0;
+                break;
+            }
+        }
+
+        pthread_mutex_unlock(&_pendingLock);
+    }
+    else
+    {
+        returnVal = FAILURE;
+    }
+
+    return returnVal;
+
 }
 
 // ****************
@@ -406,7 +457,10 @@ int to_longest(int block_num)
     return gChain->toLongest(block_num);
 }
 
-int attach_now(int block_num);
+int attach_now(int block_num)
+{
+    return gChain->attachNow(block_num);
+}
 
 int was_added(int block_num);
 
