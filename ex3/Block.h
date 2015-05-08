@@ -41,6 +41,11 @@ public:
 
     Block* getPredecessor();
 
+    void setPredecessor(Block *predecessor)
+    {
+        _predecessor = predecessor;
+    }
+
     void addSuccessor(Block* toAdd);
 
 

@@ -6,6 +6,7 @@
 #include "blockchain.h"
 #include "hash.h"
 #include <pthread.h>
+#include <algorithm>
 #include <vector>
 #include <queue>
 #include <stdlib.h>
@@ -14,6 +15,7 @@
 #define FAILURE -1
 
 using std::vector;
+using std::list;
 
 class BlockChain
 {
@@ -24,7 +26,7 @@ private:
     vector<Block *> _longestChains;
 
     // blocks that are waiting to be attached
-    vector<Block *> _pendingBlocks;
+    list<NewBlockData *> _pendingBlocks;
 
     Block *_genesis;
     int _chainSize;
@@ -36,6 +38,9 @@ private:
 
     int _currentBlockNum;
 
+    pthread_mutex_t _pendingLock;
+    pthread_cond_t _pendingEmptyCond;
+
     int getMinVacantNum();
 
     /*
@@ -43,7 +48,7 @@ private:
      */
     Block *getRandomLongestChain();
 
-    void *addBlock(void *args);
+    void *processBlocks(void *args);
 
     /*
      * return true if the given block is in the end of one of the longest chains, false otherwise
@@ -53,18 +58,12 @@ private:
     /*
      * hash a block's data, given it's predecessor's block num, it's data and data length
      */
-    char *hashBlockData(int blockNum, int predecessorBlockNum, dataToHash, dataLength);
+    char *hashBlockData(int blockNum, int predecessorBlockNum, char* dataToHash, int dataLength);
 
     /*
      * construct a new block with it's number and predecessor
      */
     Block *buildNewBlock();
-
-    /*
-     * return true if the given block is attached to the BlockChain, false otherwise
-     */
-    bool isAttached(int blockNum);
-
 
 public:
 
@@ -77,17 +76,27 @@ public:
 
     void init();
 
-    int addBlock(char *data, int length);
-
     bool isInited() const
     {
         return _inited;
     }
 
-    vector getPendingBlocks() const
+    int addBlock(char *data, int length);
+
+    bool isClosing() const
     {
-        return _pendingBlocks;
+        return _closing;
     }
+
+    list<NewBlockData *> *getPendingBlocks() const
+    {
+        return &_pendingBlocks;
+    }
+
+    /*
+     * return true if the given block is attached to the BlockChain, false otherwise
+     */
+    bool isAttached(int blockNum);
 };
 
 int BlockChain::getChainSize() const
@@ -101,6 +110,8 @@ BlockChain::BlockChain()
     init();
 }
 
+// TODO: implement with one loop
+// TODO: maybe keep sorted and move from O(N)->O(1)
 int BlockChain::getMinVacantNum()
 {
     int blockNum;
@@ -148,11 +159,16 @@ typedef struct NewBlockData
     int _dataLength;
 
     // constructor
-    NewBlockData(Block *block, char *dataToHash) : _block(
+    NewBlockData(Block *block, char *dataToHash, int dataLength) : _block(
             block), _dataLength(dataLength)
     {
-        dataToHash = new char[_dataLength]; // todo: delete
+        dataToHash = new char[_dataLength];
         memcpy(_dataToHash, dataToHash, _dataLength); // todo: check if +1 is necessary
+    }
+
+    ~NewBlockData()
+    {
+        delete[] _dataToHash;
     }
 } NewBlockData;
 
@@ -175,7 +191,8 @@ bool BlockChain::isInLongestChain(Block *block)
     return block->getChainLength() == _longestChains[0]->getChainLength();
 }
 
-char *BlockChain::hashBlockData(int blockNum, int predecessorBlockNum, dataToHash, dataLength)
+char *BlockChain::hashBlockData(int blockNum, int predecessorBlockNum, char* dataToHash, int
+                                dataLength)
 {
     // getting the nonce and hashing the data
     int nonce = generate_nonce(blockNum, predecessorBlockNum);
@@ -183,46 +200,55 @@ char *BlockChain::hashBlockData(int blockNum, int predecessorBlockNum, dataToHas
     return generate_hash(dataToHash, dataLength, nonce);
 }
 
-void *BlockChain::addBlock(void *args)
+void *BlockChain::processBlocks(void *args)
 {
-    NewBlockData *blockData = (NewBlockData *) args;
+    // TODO: need to lock closing
+    while (!isClosing())
+    {
+        pthread_mutex_lock(&_pendingLock);
+        if (getPendingBlocks()->size()==0)
+        {
+            pthread_cond_wait(&_pendingEmptyCond,&_pendingLock);
+        }
 
-    // hashing the data
-    char *hash = hashBlockData(blockData->_block->getBlockNum(),
-                               blockData->_block->getPredecessor()->getBlockNum(),
-                               blockData->_dataToHash, blockData->_dataLength);
+        NewBlockData *blockData = getPendingBlocks()->front();
+        getPendingBlocks()->pop_front();
 
-    // checking if the block's predecessor should be switched to the real-time longest chain
-    if (blockData->_block->isToLongest() &&
-        !isInLongestChain(blockData->_block->getPredecessor())) {
+        pthread_mutex_unlock(&_pendingLock);
 
-        // todo: block other threads
+        //TODO: make sure father exists
 
-        // find a new predecessor
-        Block *predecessor = getRandomLongestChain();
+        // checking if the block's predecessor should be switched to the real-time longest chain
+        if (blockData->_block->isToLongest() &&
+            !isInLongestChain(blockData->_block->getPredecessor())) {
 
-        // rehash with the new predecessor
-        hash = hashBlockData(blockData->_block->getBlockNum(), predecessor->getBlockNum(),
-                             blockData->_dataToHash, blockData->_dataLength);
+            // find a new predecessor
+            Block *predecessor = getRandomLongestChain();
+
+            blockData->_block->setPredecessor(predecessor);
+        }
+
+        // hashing the data
+        char *hash = hashBlockData(blockData->_block->getBlockNum(),
+                                   blockData->_block->getPredecessor()->getBlockNum(),
+                                   blockData->_dataToHash, blockData->_dataLength);
+
+        // attaching the block to the tree:
+        // setting the new block's hashed data
+        blockData->_block->setHashedData(hash);
+
+        // adding the new block to it's predecessor's successors list
+        blockData->_block->getPredecessor()->addSuccessor(blockData->_block);
+
+        if (isInLongestChain(blockData->_block)) {
+            _longestChains.push_back(blockData->_block);
+        }
+        else if (blockData->_block->getChainLength() > _longestChains[0]->getChainLength()) {
+            _longestChains.clear();
+            _longestChains.push_back(blockData->_block);
+        }
+
     }
-
-    // attaching the block to the tree:
-    // setting the new block's hashed data
-    blockData->_block->setHashedData(hash);
-
-    // adding the new block to it's predecessor's successors list
-    blockData->_block->getPredecessor()->addSuccessor(block);
-
-    if (isInLongestChain(blockData->_block)) {
-        _longestChains.push_back(blockData->_block);
-    }
-
-    else if (blockData->_block->getChainLength() > _longestChains[0]->getChainLength()) {
-        _longestChains.clear();
-        _longestChains.push_back(blockData->_block);
-    }
-
-    // todo: removing the block from the pending vector
 
 }
 
@@ -245,6 +271,11 @@ Block *BlockChain::buildNewBlock()
 
 int BlockChain::addBlock(char *data, int length)
 {
+    if (!isInited() || getChainSize()== INT_MAX || )
+    {
+        return FAILURE;
+    }
+
     // constructing a new block
     Block *block = buildNewBlock();
 
@@ -252,19 +283,13 @@ int BlockChain::addBlock(char *data, int length)
     NewBlockData *newBlockData = new NewBlockData(block, data, length);    // todo: delete
 
     // pushing the new block to the pending blocks' vector
-    _pendingBlocks.push_back(newBlockData);
 
-    // in another thread- hash data, attach new block to predecessor, insert new block
-    // into predecessor's successors
-    pthread_t thread;
-    int result = pthread_create(&thread, NULL, addBlock, newBlockData);
+    pthread_mutex_lock(&_pendingLock);
+    _pendingBlocks.push_back(newBlockData->_block);
+    pthread_cond_signal(&_pendingEmptyCond);
+    pthread_mutex_unlock(&_pendingLock);
 
-    // if the creation of the thread failed return FAILURE
-    if (result != 0) {
-        return FAILURE;
-    }
-
-    return newBlockData->_blockNum;
+    return newBlockData->_block->getBlockNum();
 }
 
 void BlockChain::init()
@@ -274,6 +299,12 @@ void BlockChain::init()
     _chainSize = 0;
     _currentBlockNum = 0;
     _vacantBlockNums = vector<int>();
+
+    // TODO: error handle on return != 0
+    pthread_mutex_init(&_pendingLock, NULL);
+    // TODO: error handle on return != 0
+    pthread_cond_init(&_pendingEmptyCond, NULL);
+
     _inited = true;
     _closing = false;
 }
@@ -307,9 +338,10 @@ int add_block(char *data, int length)
 
 int to_longest(int block_num)
 {
+    // TODO: perform in different thread
     // checking if the block is waiting to be attached
-    for (vector<Block *>::iterator it = gChain->getPendingBlocks().begin();
-         it != gChain->getPendingBlocks().end(); ++it) {
+    for (vector<Block *>::iterator it = gChain->getPendingBlocks()->begin();
+         it != gChain->getPendingBlocks()->end(); ++it) {
 
         Block *pendingBlock = (Block *) *it;
 
