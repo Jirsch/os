@@ -14,10 +14,10 @@
 using std::vector;
 using std::list;
 
-//TODO: invert ifInited ifs
 //TODO: check lock return values
 //TODO: make sure blockNUm is valid
 //TODO: should isVacant lock?
+// TODO: extract constants, specifically SUCCESS=0
 
 /*
  * wrapping a new block with it's dataToHash
@@ -168,7 +168,6 @@ int BlockChain::getMinVacantNum()
     int blockNum;
     if (!this->_vacantBlockNums.empty())
     {
-
         // the min num will be lower than the current number
         int minVacantNum = _currentBlockNum;
         vector<int>::iterator minIt;
@@ -190,7 +189,6 @@ int BlockChain::getMinVacantNum()
     }
     else
     {
-
         // there are no vacant numbers lower than the current one
         blockNum = ++this->_currentBlockNum; // verify that this works
     }
@@ -559,7 +557,7 @@ int init_blockchain()
 
     if (gChain->isInited())
     {
-        return -1;
+        return FAILURE;
     }
 
     gChain->init();
