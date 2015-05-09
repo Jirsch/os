@@ -73,7 +73,7 @@ class BlockChain
 
     int getMinVacantNum();
 
-    NewBlockData* isPending(int blockNum);
+    NewBlockData *isPending(int blockNum);
 
     /*
      * returns a random block from one of the longest chains
@@ -96,6 +96,12 @@ class BlockChain
      * construct a new block with it's number and predecessor
      */
     Block *buildNewBlock();
+
+    void detach(Block *root);
+
+    void detachChildren(Block *root, Block *except);
+
+    void addVacancy(int blockNum);
 
     public:
 
@@ -121,6 +127,8 @@ class BlockChain
 
     int wasAdded(int blockNum);
 
+    int prune();
+
     bool isClosing() const
     {
         return _closing;
@@ -137,11 +145,11 @@ int BlockChain::getChainSize() const
     int retVal;
     if (isInited())
     {
-        retVal=_chainSize;
+        retVal = _chainSize;
     }
     else
     {
-        retVal=FAILURE;
+        retVal = FAILURE;
     }
 
     return retVal;
@@ -193,7 +201,7 @@ int BlockChain::getMinVacantNum()
 
 NewBlockData *BlockChain::isPending(int blockNum)
 {
-    NewBlockData* retVal = NULL;
+    NewBlockData *retVal = NULL;
 
     for (list<NewBlockData *>::iterator it = getPendingBlocks()->begin();
          it != getPendingBlocks()->end(); ++it)
@@ -240,7 +248,6 @@ dataLength)
 
 void *BlockChain::processBlocks(void *args)
 {
-    // TODO: need to lock closing
     while (!isClosing())
     {
         pthread_mutex_lock(&_pendingLock);
@@ -254,11 +261,10 @@ void *BlockChain::processBlocks(void *args)
 
         pthread_mutex_unlock(&_pendingLock);
 
-        //TODO: make sure father exists
-
         // checking if the block's predecessor should be switched to the real-time longest chain
-        if (blockData->_block->isToLongest() &&
-            !isInLongestChain(blockData->_block->getPredecessor()))
+        if ((blockData->_block->isToLongest() &&
+             !isInLongestChain(blockData->_block->getPredecessor()))
+            || isVacant(blockData->_block->getPredecessor()->getBlockNum()))
         {
 
             // find a new predecessor
@@ -447,13 +453,13 @@ int BlockChain::wasAdded(int blockNum)
         }
         else
         {
-            if (isPending(blockNum)==NULL)
+            if (isPending(blockNum) == NULL)
             {
-                returnVal=0;
+                returnVal = 0;
             }
             else
             {
-                returnVal=1;
+                returnVal = 1;
             }
         }
 
@@ -465,6 +471,76 @@ int BlockChain::wasAdded(int blockNum)
     }
 
     return returnVal;
+}
+
+void BlockChain::addVacancy(int blockNum)
+{
+    _vacantBlockNums.push_back(blockNum);
+}
+
+void BlockChain::detach(Block *root)
+{
+    list<Block *>::iterator it = root->getSuccessors().begin();
+
+    while (it != root->getSuccessors().end())
+    {
+        detach(*it);
+    }
+
+    addVacancy(root->getBlockNum());
+    delete root;
+}
+
+void BlockChain::detachChildren(Block *root, Block *except)
+{
+    list<Block *>::iterator it = root->getSuccessors().begin();
+
+    while (it != root->getSuccessors().end())
+    {
+        if ((*it) != except)
+        {
+            detach(*it);
+            root->getSuccessors().erase(it);
+        }
+        else
+        {
+            ++it;
+        }
+    }
+
+}
+
+int BlockChain::prune()
+{
+    int retVal;
+
+    // prevent new block from being attached to pruned parents
+    pthread_mutex_lock(&_pendingLock);
+
+    if (isInited())
+    {
+        Block *desiredTail = getRandomLongestChain();
+
+        Block *prev, *curr;
+        curr = desiredTail;
+
+        while (curr != _genesis)
+        {
+            prev = curr;
+            curr = prev->getPredecessor();
+            detachChildren(curr, prev);
+        }
+
+        retVal = 0;
+    }
+    else
+    {
+        retVal = FAILURE;
+    }
+
+    pthread_mutex_unlock(&_pendingLock);
+
+    return retVal;
 }
 
 // ****************
@@ -516,7 +592,10 @@ int chain_size()
     return gChain->getChainSize();
 }
 
-int prune_chain();
+int prune_chain()
+{
+    return gChain->prune();
+}
 
 void close_chain();
 

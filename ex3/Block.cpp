@@ -4,17 +4,26 @@
 
 #include "Block.h"
 
-Block::Block(int blockNum, Block *predecessor) {
+Block::Block(int blockNum, Block *predecessor)
+{
     _blockNum = blockNum;
     _predecessor = predecessor;
     _hashedData = NULL;
-    _successors = list<Block*>();
+    _successors = list<Block *>();
     _toLongest = false;
-    if  (isGenesis())
+}
+
+void Block::setPredecessor(Block *predecessor)
+{
+    _predecessor = predecessor;
+    if (isGenesis())
     {
         _chainLength = 0;
     }
-    _chainLength = predecessor->getChainLength() + 1;
+    else
+    {
+        _chainLength = predecessor->getChainLength() + 1;
+    }
 }
 
 bool Block::isGenesis()
@@ -22,17 +31,14 @@ bool Block::isGenesis()
     return getPredecessor() == NULL;
 }
 
-Block *Block::getPredecessor() {
+Block *Block::getPredecessor()
+{
     return _predecessor;
 }
 
-Block::~Block() {
-    if (!_successors.empty()) {
-        for (list<Block*>::const_iterator iterator = _successors.begin(), end = _successors.end();
-             iterator != end; ++iterator) {
-            delete *iterator;
-        }
-    }
+Block::~Block()
+{
+    delete _hashedData;
 }
 
 void Block::addSuccessor(Block *toAdd)

@@ -41,13 +41,14 @@ public:
 
     Block* getPredecessor();
 
-    void setPredecessor(Block *predecessor)
-    {
-        _predecessor = predecessor;
-    }
+    void setPredecessor(Block *predecessor);
 
     void addSuccessor(Block* toAdd);
 
+    list<Block *> &getSuccessors()
+    {
+        return _successors;
+    }
 
     void setToLongest(bool toLongest)
     {
