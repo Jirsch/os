@@ -134,7 +134,17 @@ class BlockChain
 
 int BlockChain::getChainSize() const
 {
-    return _chainSize;
+    int retVal;
+    if (isInited())
+    {
+        retVal=_chainSize;
+    }
+    else
+    {
+        retVal=FAILURE;
+    }
+
+    return retVal;
 }
 
 BlockChain::BlockChain()
@@ -501,7 +511,10 @@ int was_added(int block_num)
     return gChain->wasAdded(block_num);
 }
 
-int chain_size();
+int chain_size()
+{
+    return gChain->getChainSize();
+}
 
 int prune_chain();
 
