@@ -6,11 +6,8 @@
 #include "blockchain.h"
 #include "hash.h"
 #include <pthread.h>
-#include <algorithm>
 #include <vector>
 #include <queue>
-#include <stdlib.h>
-#include <time.h>
 
 #define FAILURE -1
 
@@ -19,6 +16,31 @@ using std::list;
 
 //TODO: invert ifInited ifs
 //TODO: check lock return values
+//TODO: make sure blockNUm is valid
+//TODO: should isVacant lock?
+
+/*
+ * wrapping a new block with it's dataToHash
+ */
+typedef struct NewBlockData
+{
+    Block *_block;
+    char *_dataToHash;
+    int _dataLength;
+
+    // constructor
+    NewBlockData(Block *block, char *dataToHash, int dataLength) : _block(
+            block), _dataLength(dataLength)
+    {
+        dataToHash = new char[_dataLength];
+        memcpy(_dataToHash, dataToHash, _dataLength); // todo: check if +1 is necessary
+    }
+
+    ~NewBlockData()
+    {
+        delete[] _dataToHash;
+    }
+} NewBlockData;
 
 class BlockChain
 {
@@ -44,7 +66,14 @@ class BlockChain
     pthread_mutex_t _pendingLock;
     pthread_cond_t _pendingEmptyCond;
 
+    /*
+     * return true if the given blockNum is not in use
+     */
+    bool isVacant(int blockNum);
+
     int getMinVacantNum();
+
+    NewBlockData* isPending(int blockNum);
 
     /*
      * returns a random block from one of the longest chains
@@ -90,6 +119,8 @@ class BlockChain
 
     int attachNow(int blockNum);
 
+    int wasAdded(int blockNum);
+
     bool isClosing() const
     {
         return _closing;
@@ -99,11 +130,6 @@ class BlockChain
     {
         return &_pendingBlocks;
     }
-
-    /*
-     * return true if the given block is attached to the BlockChain, false otherwise
-     */
-    bool isAttached(int blockNum);
 };
 
 int BlockChain::getChainSize() const
@@ -117,8 +143,8 @@ BlockChain::BlockChain()
     init();
 }
 
-// TODO: implement with one loop
 // TODO: maybe keep sorted and move from O(N)->O(1)
+// TODO: lock
 int BlockChain::getMinVacantNum()
 {
     int blockNum;
@@ -127,6 +153,7 @@ int BlockChain::getMinVacantNum()
 
         // the min num will be lower than the current number
         int minVacantNum = _currentBlockNum;
+        vector<int>::iterator minIt;
 
         // finding the minimum vacant number
         for (vector<int>::iterator it = _vacantBlockNums.begin();
@@ -135,23 +162,14 @@ int BlockChain::getMinVacantNum()
             if (*it < minVacantNum)
             {
                 minVacantNum = *it;
+                minIt = it;
             }
         }
 
         // assigning the minimum number to the new block
         blockNum = minVacantNum;
-
-        // removing the minimum number from the vector
-        for (vector<int>::iterator it = _vacantBlockNums.begin();
-             it != _vacantBlockNums.end(); ++it)
-        {
-            if (*it == minVacantNum)
-            {
-                _vacantBlockNums.erase(it);
-            }
-        }
+        _vacantBlockNums.erase(minIt);
     }
-
     else
     {
 
@@ -162,34 +180,29 @@ int BlockChain::getMinVacantNum()
     return blockNum;
 }
 
-/*
- * wrapping a new block with it's dataToHash
- */
-typedef struct NewBlockData
+
+NewBlockData *BlockChain::isPending(int blockNum)
 {
-    Block *_block;
-    char *_dataToHash;
-    int _dataLength;
+    NewBlockData* retVal = NULL;
 
-    // constructor
-    NewBlockData(Block *block, char *dataToHash, int dataLength) : _block(
-            block), _dataLength(dataLength)
+    for (list<NewBlockData *>::iterator it = getPendingBlocks()->begin();
+         it != getPendingBlocks()->end(); ++it)
     {
-        dataToHash = new char[_dataLength];
-        memcpy(_dataToHash, dataToHash, _dataLength); // todo: check if +1 is necessary
-    }
+        NewBlockData *pendingBlockData = (NewBlockData *) *it;
 
-    ~NewBlockData()
-    {
-        delete[] _dataToHash;
+        if (pendingBlockData->_block->getBlockNum() == blockNum)
+        {
+            retVal = pendingBlockData;
+            break;
+        }
     }
-} NewBlockData;
+    return retVal;
+}
 
-bool BlockChain::isAttached(int blockNum)
+bool BlockChain::isVacant(int blockNum)
 {
     bool isVacant = false;
-    //TODO: lock?
-    //TODO: not in pending!
+
     // looking for the given blockNum in the vector
     if (std::find(_vacantBlockNums.begin(), _vacantBlockNums.end(), blockNum) !=
         _vacantBlockNums.end())
@@ -198,7 +211,7 @@ bool BlockChain::isAttached(int blockNum)
     }
 
     // will be true if the given blockNum is lower than the current one and is not vacant
-    return blockNum <= _currentBlockNum && !isVacant;
+    return blockNum > _currentBlockNum || isVacant;
 }
 
 bool BlockChain::isInLongestChain(Block *block)
@@ -337,37 +350,29 @@ int BlockChain::toLongest(int blockNum)
 {
     int returnVal;
 
-    //TODO: make sure blockNUm is valid
     if (isInited())
     {
         // checking if the block is already attached
-        if (isAttached(blockNum))
+        if (isVacant(blockNum))
         {
-            returnVal = 1;
+            returnVal = -2;
         }
         else
         {
-            // the blockNum does not exist, unless in pending - todo: verify
-            returnVal = -2;
-        }
+            // the blockNum is already attached, unless in pending
+            returnVal = 1;
 
-        pthread_mutex_lock(&_pendingLock);
+            pthread_mutex_lock(&_pendingLock);
 
-        // checking if the block is waiting to be attached
-        for (list<NewBlockData *>::iterator it = getPendingBlocks()->begin();
-             it != getPendingBlocks()->end(); ++it)
-        {
-            NewBlockData *pendingBlockData = (NewBlockData *) *it;
-
-            if (pendingBlockData->_block->getBlockNum() == blockNum)
+            NewBlockData *pendingBlockData = isPending(blockNum);
+            if (pendingBlockData != NULL)
             {
                 pendingBlockData->_block->setToLongest(true);
                 returnVal = 0;
-                break;
             }
-        }
 
-        pthread_mutex_unlock(&_pendingLock); //TODO: is this locking ok?
+            pthread_mutex_unlock(&_pendingLock); //TODO: is this locking ok?
+        }
     }
     else
     {
@@ -381,35 +386,28 @@ int BlockChain::attachNow(int blockNum)
 {
     int returnVal;
 
-    //TODO: make sure blockNUm is valid
     if (isInited())
     {
         pthread_mutex_lock(&_pendingLock);
 
         // checking if the block is already attached
-        if (isAttached(blockNum))
+        if (isVacant(blockNum))
         {
-            returnVal = 0;
+            returnVal = -2;
         }
         else
         {
-            // the blockNum does not exist, unless in pending - todo: verify
-            returnVal = -2;
-        }
+            NewBlockData *pendingBlockData = isPending(blockNum);
 
-        for (list<NewBlockData *>::iterator it = getPendingBlocks()->begin();
-             it != getPendingBlocks()->end(); ++it)
-        {
-            NewBlockData *pendingBlockData = (NewBlockData *) *it;
-
-            if (pendingBlockData->_block->getBlockNum() == blockNum)
+            // not in pending -> already attached
+            if (pendingBlockData != NULL)
             {
                 // move blockData to front of pending queue
-                getPendingBlocks()->erase(it);
+                getPendingBlocks()->remove(pendingBlockData);
                 getPendingBlocks()->push_front(pendingBlockData);
-                returnVal = 0;
-                break;
             }
+
+            returnVal = 0;
         }
 
         pthread_mutex_unlock(&_pendingLock);
@@ -421,6 +419,42 @@ int BlockChain::attachNow(int blockNum)
 
     return returnVal;
 
+}
+
+int BlockChain::wasAdded(int blockNum)
+{
+    int returnVal;
+
+    if (isInited())
+    {
+        pthread_mutex_lock(&_pendingLock);
+
+        // checking if the block is already attached
+        if (isVacant(blockNum))
+        {
+            // the blockNum does not exist, unless in pending
+            returnVal = 2;
+        }
+        else
+        {
+            if (isPending(blockNum)==NULL)
+            {
+                returnVal=0;
+            }
+            else
+            {
+                returnVal=1;
+            }
+        }
+
+        pthread_mutex_unlock(&_pendingLock);
+    }
+    else
+    {
+        returnVal = FAILURE;
+    }
+
+    return returnVal;
 }
 
 // ****************
@@ -462,7 +496,10 @@ int attach_now(int block_num)
     return gChain->attachNow(block_num);
 }
 
-int was_added(int block_num);
+int was_added(int block_num)
+{
+    return gChain->wasAdded(block_num);
+}
 
 int chain_size();
 
