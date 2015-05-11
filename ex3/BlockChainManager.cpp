@@ -4,17 +4,6 @@
 
 #include "BlockChainManager.h"
 
-#define SUCCESS 0
-#define FAILURE -1
-
-#define NOT_EXIST -2
-#define ATTACHED 1
-#define FALSE 0
-#define TRUE 1
-#define IS_NOT_CLOSING -2
-#define DEF_INDEX 0
-
-
 /*
  * wrapping a new block with its dataToHash
  */
@@ -28,9 +17,16 @@ typedef struct NewBlockData
     NewBlockData(Block *block, char *dataToHash, int dataLength) : _block(
             block), _dataLength(dataLength)
     {
-        dataToHash = new char[_dataLength];
+        _dataToHash = new char[dataLength];
         memcpy(_dataToHash, dataToHash, _dataLength); // todo: check if +1 is necessary
     }
+
+    Block* getBlock()
+    {
+    	return _block;
+    }
+
+
 
     // destructor
     ~NewBlockData()
@@ -138,7 +134,7 @@ bool BlockChainManager::isInLongestChain(Block *block)
 }
 
 char *BlockChainManager::hashBlockData(int blockNum, int predecessorBlockNum, char *dataToHash,
-                                       size_t dataLength)
+                                       int dataLength)
 {
     // getting the nonce and hashing the data
     int nonce = generate_nonce(blockNum, predecessorBlockNum);
@@ -242,7 +238,7 @@ int BlockChainManager::addBlock(char *data, int length)
     // pushing the new block to the pending blocks' vector (with locking)
     pthread_mutex_lock(&_pendingLock);
 
-    _pendingBlocks.push_back(newBlockData);
+    getPendingBlocks()->push_back(newBlockData);
 
     pthread_cond_signal(&_pendingEmptyCond);
 
@@ -268,7 +264,7 @@ int BlockChainManager::init()
     // initializing the locks
     if (pthread_mutex_init(&_pendingLock, NULL) != SUCCESS ||
         pthread_cond_init(&_pendingEmptyCond, NULL) != SUCCESS) {
-        return FAILUE;
+        return FAILURE;
     }
 
     // creating the thread that will process blocks
@@ -441,13 +437,13 @@ int BlockChainManager::prune()
 void BlockChainManager::processClosing()
 {
     // printing the pending blocks and deleting them
-    for (vector<int>::iterator it = _pendingBlocks.begin();
-         it != _pendingBlocks.end(); ++it) {
+    for (vector<int>::iterator it = getPendingBlocks()->begin();
+         it != getPendingBlocks()->end(); ++it) {
         NewBlockData *pendingBlock = (NewBlockData *) *it;
 
         // hashing the data
-        char *hash = hashBlockData(pendingBlock->getBlockNum(),
-                                   pendingBlock->getPredecessor()->getBlockNum(),
+        char *hash = hashBlockData(pendingBlock->getBlock()->getBlockNum(),
+                                   pendingBlock->getBlock()->getPredecessor()->getBlockNum(),
                                    pendingBlock->_dataToHash, pendingBlock->_dataLength);
 
         std::cout << hash << std::endl;
@@ -459,16 +455,12 @@ void BlockChainManager::processClosing()
     // deleting the chain
     detach(_genesis);
 
-    // destroying the locks
-    if (pthread_mutex_destroy(&_pendingLock, NULL) != SUCCESS
-        || pthread_cond_destroy(&_pendingEmptyCond, NULL) != SUCCESS) {
-        return FAILUE;
-    }
+    // destroying the locks. todo: check for errors? returning void
+    pthread_mutex_destroy(&_pendingLock);
+    pthread_cond_destroy(&_pendingEmptyCond);
 
-    // creating the thread that will process blocks
-    if (pthread_join(&_blockProcessor, NULL) != SUCCESS) {
-        return FAILURE;
-    }
+    // creating the thread that will process blocks. todo: check for errors? returning void
+    pthread_join(_blockProcessor, NULL);
 
     setIsInited(false);
 
@@ -485,10 +477,11 @@ void BlockChainManager::close()
 
 int BlockChainManager::returnOnClose()
 {
-    if (!isClosing()) {
+    if (!isClosing())
+    {
         return IS_NOT_CLOSING;
     }
-    while (!finishedCLosing()) {
+    while (!finishedClosing()) {
         // do nothing - continue closing
     }
 

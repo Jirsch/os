@@ -51,6 +51,11 @@ public:
     void setPredecessor(Block *predecessor);
 
     /*
+     * return true if the block is a genesis of a chain
+     */
+    bool isGenesis();
+
+    /*
      * add a successor to the list
      */
     void addSuccessor(Block* toAdd);

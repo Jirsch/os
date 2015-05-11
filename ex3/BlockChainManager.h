@@ -9,7 +9,23 @@
 #include "hash.h"
 #include <pthread.h>
 #include <vector>
+#include <algorithm>
 #include <queue>
+#include <string.h>
+
+#define INT_MAX 20000 // todo: what is max_int? do we define it?
+
+#define SUCCESS 0
+#define FAILURE -1
+
+#define NOT_EXIST -2
+#define ATTACHED 1
+#define FALSE 0
+#define TRUE 1
+#define IS_NOT_CLOSING -2
+#define DEF_INDEX 0
+
+using std::vector;
 
 
 class BlockChainManager
@@ -64,12 +80,6 @@ private:
     int getMinVacantNum();
 
     /*
-     * checks if the given blockNum is in the pending list. if so, return the Block. else, return
-     * NULL
-     */
-    NewBlockData *isPending(int blockNum);
-
-    /*
      * returns a random block from one of the longest chains
      */
     Block *getRandomLongestChain();
@@ -92,7 +102,7 @@ private:
     /*
      * hash a block's data, given it's predecessor's block num, it's data and data length
      */
-    char *hashBlockData(int blockNum, int predecessorBlockNum, char *dataToHash, size_t dataLength);
+    char *hashBlockData(int blockNum, int predecessorBlockNum, char *dataToHash, int dataLength);
 
     /*
      * construct a new block with it's number and predecessor
@@ -148,6 +158,12 @@ public:
     }
 
     /*
+     * checks if the given blockNum is in the pending list. if so, return the Block. else, return
+     * NULL
+     */
+    NewBlockData* isPending(int blockNum);
+
+    /*
      * add a block with the given data to the pending list.
      * return the block num in success, -1 in failure
      */
@@ -198,7 +214,7 @@ public:
     /*
      * start a closing process
      */
-    void startCLosing()
+    void startClosing()
     {
         _closing = true;
     }
@@ -210,6 +226,11 @@ public:
     {
         _finishedClosing = true;
     }
+
+    /*
+     * initialize the longest Chains list
+     */
+    void initLongestChains(Block *longest);
 
     /*
      * return true if the chain has finished its closing process, false otherwise

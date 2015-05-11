@@ -4,6 +4,7 @@
 
 #include "Block.h"
 
+
 Block::Block(int blockNum, Block *predecessor)
 {
     _blockNum = blockNum;
@@ -11,6 +12,7 @@ Block::Block(int blockNum, Block *predecessor)
     _hashedData = NULL;
     _successors = list<Block *>();
     _toLongest = false;
+    _chainLength = 0;
 }
 
 void Block::setPredecessor(Block *predecessor)
@@ -26,6 +28,11 @@ void Block::setPredecessor(Block *predecessor)
     {
         _chainLength = predecessor->getChainLength() + 1;
     }
+}
+
+bool Block::isGenesis()
+{
+    return _predecessor == 	NULL;
 }
 
 Block *Block::getPredecessor()

@@ -3,7 +3,6 @@
 //
 
 #include "blockchain.h"
-#include "BlockChainManager.h"
 
 using std::vector;
 using std::list;
@@ -15,7 +14,7 @@ int init_blockchain()
 {
     if (gChainManager == NULL)
     {
-        gChainManager = new BlockChain();
+        gChainManager = new BlockChainManager();
     }
 
     if (gChainManager->isInited())

@@ -1,6 +1,8 @@
 #ifndef _BLOCKCHAIN_H
 #define _BLOCKCHAIN_H
 
+#include "BlockChainManager.h"
+
 /*
  *       A multi threaded blockchain database manager
  *       Author: OS, os@cs.huji.ac.il
