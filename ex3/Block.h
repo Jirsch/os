@@ -9,6 +9,7 @@
 
 using std::list;
 
+
 class Block {
 private:
     char* _hashedData;
@@ -26,45 +27,69 @@ public:
      */
     Block(int blockNum, Block* predecessor);
 
+    /*
+     * return the number of blocks from the genesis to the block
+     */
     int getChainLength() const
     {
         return _chainLength;
     }
 
-/*
-     * deletes all the successors by calling their "delete" method
-     * and deletes the current Block
+    /*
+     * destructor
      */
     ~Block();
 
-    bool isGenesis();
-
+    /*
+     * return the predecessor of the block
+     */
     Block* getPredecessor();
 
+    /*
+     * set the predecessor to the given one
+     */
     void setPredecessor(Block *predecessor);
 
+    /*
+     * add a successor to the list
+     */
     void addSuccessor(Block* toAdd);
 
+    /*
+     * return the list of successors
+     */
     list<Block *> &getSuccessors()
     {
         return _successors;
     }
 
+    /*
+     * set the flag the indicates if the block should be attached to the real-time longest chain
+     */
     void setToLongest(bool toLongest)
     {
         _toLongest = toLongest;
     }
 
+    /*
+     * return the flag the indicates if the block should be attached to the real-time longest chain
+     */
     bool isToLongest() const
     {
         return _toLongest;
     }
 
+    /*
+     * set the hashed data to the given one
+     */
     void setHashedData(char *hashedData)
     {
         _hashedData = hashedData;
     }
 
+    /*
+     * return the blockNum
+     */
     int getBlockNum() const
     {
         return _blockNum;

@@ -16,19 +16,16 @@ Block::Block(int blockNum, Block *predecessor)
 void Block::setPredecessor(Block *predecessor)
 {
     _predecessor = predecessor;
+
     if (isGenesis())
     {
         _chainLength = 0;
     }
+
     else
     {
         _chainLength = predecessor->getChainLength() + 1;
     }
-}
-
-bool Block::isGenesis()
-{
-    return getPredecessor() == NULL;
 }
 
 Block *Block::getPredecessor()

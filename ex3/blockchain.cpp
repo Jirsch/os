@@ -2,22 +2,11 @@
 // Author: orenbm21, jirsch
 //
 
-#include "Block.h"
 #include "blockchain.h"
-#include "hash.h"
-#include <pthread.h>
-#include <vector>
-#include <queue>
-
-#define FAILURE -1
+#include "BlockChainManager.h"
 
 using std::vector;
 using std::list;
-
-//TODO: check lock return values
-//TODO: make sure blockNUm is valid
-//TODO: should isVacant lock?
-//TODO: extract constants, specifically SUCCESS=0
 
 
 BlockChainManager *gChainManager;
@@ -76,7 +65,6 @@ void close_chain()
 
 int return_on_close()
 {
-
 	int res = gChainManager->returnOnClose();
     delete gChainManager;
     return res;

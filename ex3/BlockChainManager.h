@@ -5,20 +5,21 @@
 #ifndef EX3_BLOCKCHAINMANAGER_H
 #define EX3_BLOCKCHAINMANAGER_H
 
+#include "Block.h"
+#include "hash.h"
+#include <pthread.h>
+#include <vector>
+#include <queue>
+
 
 class BlockChainManager
 {
 private:
 
-    // blocks that are in the end of the longest chains
-    vector<Block *> _longestChains;
-
-    // blocks that are waiting to be attached
-    list<NewBlockData *> _pendingBlocks;
-
     // the root of the block chain
     Block *_genesis;
 
+    // the number of blocks in the chain
     int _chainSize;
 
     // indicates if the chain is initialized
@@ -36,12 +37,21 @@ private:
     // the highest block number in use
     int _currentBlockNum;
 
-    /*
-     * the lock of the pending list
-     */
+    // blocks that are in the end of the longest chains
+    vector<Block *> _longestChains;
+
+    // blocks that are waiting to be attached
+    list<NewBlockData *> _pendingBlocks;
+
+    // the lock of the pending list
     pthread_mutex_t _pendingLock;
 
+    // the condition variable of the pending list
     pthread_cond_t _pendingEmptyCond;
+
+    // the thread that processes the pending blocks
+    pthread_t _blockProcessor;
+
 
     /*
      * return true if the given blockNum is not in use
@@ -82,7 +92,7 @@ private:
     /*
      * hash a block's data, given it's predecessor's block num, it's data and data length
      */
-    char *hashBlockData(int blockNum, int predecessorBlockNum, char *dataToHash, int dataLength);
+    char *hashBlockData(int blockNum, int predecessorBlockNum, char *dataToHash, size_t dataLength);
 
     /*
      * construct a new block with it's number and predecessor
@@ -117,9 +127,9 @@ public:
     int getChainSize() const;
 
     /*
-     * initializes the chain and its members
+     * initializes the chain and its members. return 0 on success, -1 on failure
      */
-    void init();
+    int init();
 
     /*
      * return true if the chain is initialized, false otherwise
@@ -155,36 +165,63 @@ public:
     int attachNow(int blockNum);
 
     /*
-     *
+     * return 1 if the given blockNum was added, 0 if it is still pending and -2
+     * if it does not exist
      */
     int wasAdded(int blockNum);
 
+    /*
+     * prune all the chains that are not the longest one.
+     * return 0 on success, -1 otherwise
+     */
     int prune();
 
+    /*
+     * start the closing process of the chain
+     */
     void close();
 
+    /*
+     * return only when the chain finished its closing process
+     * return 0 on success, -2 if the chain wasn't in a closing process, and -1 on failure
+     */
     int returnOnClose();
 
+    /*
+     * return true if the chain is in a closing process, false otherwise
+     */
     bool isClosing() const
     {
         return _closing;
     }
 
+    /*
+     * start a closing process
+     */
     void startCLosing()
     {
         _closing = true;
     }
 
+    /*
+     * indicate that the closing process is finished
+     */
     void finishClosing()
     {
         _finishedClosing = true;
     }
 
+    /*
+     * return true if the chain has finished its closing process, false otherwise
+     */
     bool finishedClosing()
     {
         return _finishedClosing;
     }
 
+    /*
+     * return the pending blocks list
+     */
     list<NewBlockData *> *getPendingBlocks() const
     {
         return &_pendingBlocks;
