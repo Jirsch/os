@@ -259,7 +259,7 @@ int BlockChainManager::init()
 
     _chainSize = 0;
     _currentBlockNum = 0;
-    _vacantBlockNums = vector<int>();
+
     _inited = true;
     _closing = false;
 
@@ -486,6 +486,9 @@ void BlockChainManager::processClosing()
 
     // deleting the chain
     detach(_genesis);
+
+    _vacantBlockNums.clear();
+    _longestChains.clear();
 
     // destroy locks
     if (pthread_mutex_destroy(&_pendingLock) != SUCCESS ||
