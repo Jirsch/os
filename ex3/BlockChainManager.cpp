@@ -124,7 +124,7 @@ void *BlockChainManager::processBlocks(void *args)
         pthread_mutex_lock(&(chain->_pendingLock));
 
         if (chain->getPendingBlocks()->size() == 0) {
-            pthread_cond_wait(&_pendingEmptyCond, &(chain->_pendingLock));
+            pthread_cond_wait(&(chain->_pendingEmptyCond), &(chain->_pendingLock));
         }
 
         NewBlockData *blockData = chain->getPendingBlocks()->front();
