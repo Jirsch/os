@@ -13,7 +13,7 @@
 #include <queue>
 #include <string.h>
 #include <iostream>
-
+#include <climits>
 
 #define SUCCESS 0
 #define FAILURE -1
