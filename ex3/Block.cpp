@@ -32,7 +32,7 @@ void Block::setPredecessor(Block *predecessor)
 
 bool Block::isGenesis()
 {
-    return _predecessor == 	NULL;
+    return _predecessor == NULL;
 }
 
 Block *Block::getPredecessor()
@@ -42,7 +42,10 @@ Block *Block::getPredecessor()
 
 Block::~Block()
 {
-    delete _hashedData;
+    if (_hashedData != NULL)
+    {
+        delete _hashedData;
+    }
 }
 
 void Block::addSuccessor(Block *toAdd)

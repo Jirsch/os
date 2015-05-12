@@ -417,16 +417,21 @@ int BlockChainManager::prune()
     {
         Block *desiredTail = getRandomLongestChain();
 
+        std::cout << "Chose Tail" << std::endl;
+
         Block *prev, *curr;
         curr = desiredTail;
 
         while (curr != _genesis)
         {
+            std::cout << "detach start" << std::endl;
             prev = curr;
             curr = prev->getPredecessor();
             detachChildren(curr, prev);
+            std::cout << "detach end" << std::endl;
         }
 
+        std::cout << "all detach end" << std::endl;
         initLongestChains(desiredTail);
 
         retVal = SUCCESS;
