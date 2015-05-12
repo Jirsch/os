@@ -4,39 +4,6 @@
 
 #include "BlockChainManager.h"
 
-/*
- * wrapping a new block with its dataToHash
- */
-typedef struct NewBlockData
-{
-    Block *_block;
-    char *_dataToHash;
-    int _dataLength;
-
-    // constructor
-    NewBlockData(Block *block, char *dataToHash, int dataLength) : _block(
-            block), _dataLength(dataLength)
-    {
-        _dataToHash = new char[dataLength];
-        memcpy(_dataToHash, dataToHash, _dataLength); // todo: check if +1 is necessary
-    }
-
-    Block* getBlock()
-    {
-    	return _block;
-    }
-
-
-
-    // destructor
-    ~NewBlockData()
-    {
-        delete[] _dataToHash;
-        _block = NULL;
-    }
-} NewBlockData;
-
-
 int BlockChainManager::getChainSize() const
 {
     int retVal;
@@ -148,8 +115,10 @@ void BlockChainManager::initLongestChains(Block *longest)
     _longestChains.push_back(longest);
 }
 
-void *BlockChainManager::processBlocks(void *args)
+static void *BlockChainManager::processBlocks(void *args)
 {
+    BlockChainManager* chain = (BlockChainManager*)args;
+
     while (!isClosing()) {
 
         pthread_mutex_lock(&_pendingLock);
@@ -268,7 +237,7 @@ int BlockChainManager::init()
     }
 
     // creating the thread that will process blocks
-    if (pthread_create(&_blockProcessor, NULL, processBlocks, NULL) != SUCCESS) {
+    if (pthread_create(&_blockProcessor, NULL, &BlockChainManager::processBlocks, NULL) != SUCCESS) {
         return FAILURE;
     }
 

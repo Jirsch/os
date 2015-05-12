@@ -27,6 +27,37 @@
 
 using std::vector;
 
+/*
+ * wrapping a new block with its dataToHash
+ */
+typedef struct NewBlockData
+{
+    Block *_block;
+    char *_dataToHash;
+    int _dataLength;
+
+    // constructor
+    NewBlockData(Block *block, char *dataToHash, int dataLength) : _block(
+            block), _dataLength(dataLength)
+    {
+        _dataToHash = new char[dataLength];
+        memcpy(_dataToHash, dataToHash, _dataLength); // todo: check if +1 is necessary
+    }
+
+    Block* getBlock()
+    {
+        return _block;
+    }
+
+
+
+    // destructor
+    ~NewBlockData()
+    {
+        delete[] _dataToHash;
+        _block = NULL;
+    }
+} NewBlockData;
 
 class BlockChainManager
 {
@@ -87,7 +118,7 @@ private:
     /*
      * will process pending blocks while the chain isn't in a closing process
      */
-    void *processBlocks(void *args);
+    static void *processBlocks(void *args);
 
     /*
      * closes the chain
@@ -243,7 +274,7 @@ public:
     /*
      * return the pending blocks list
      */
-    list<NewBlockData *> *getPendingBlocks() const
+    list<NewBlockData *> *getPendingBlocks()
     {
         return &_pendingBlocks;
     }

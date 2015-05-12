@@ -5,6 +5,7 @@
 #ifndef OS_BLOCK_H
 #define OS_BLOCK_H
 
+#include <cstdlib>
 #include <list>
 
 using std::list;
