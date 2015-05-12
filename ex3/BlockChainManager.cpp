@@ -450,8 +450,12 @@ int BlockChainManager::prune()
     return retVal;
 }
 
+// TODO: make sure this is private
 void BlockChainManager::processClosing()
 {
+    // TODO: remove redundant bool, inline assignments
+    setIsInited(false);
+
     // printing the pending blocks and deleting them
     for (list<NewBlockData *>::iterator it = getPendingBlocks()->begin();
          it != getPendingBlocks()->end(); ++it)
@@ -465,6 +469,7 @@ void BlockChainManager::processClosing()
 
         std::cout << hash << std::endl;
 
+        delete hash;
         delete pendingBlock->_block;
         delete pendingBlock;
     }
@@ -475,11 +480,6 @@ void BlockChainManager::processClosing()
     // destroying the locks. todo: check for errors? returning void
     pthread_mutex_destroy(&_pendingLock);
     pthread_cond_destroy(&_pendingEmptyCond);
-
-    // creating the thread that will process blocks. todo: check for errors? returning void
-    pthread_join(_blockProcessor, NULL);
-
-    setIsInited(false);
 
     // indicate that we finished closing the chain
     finishClosing();
