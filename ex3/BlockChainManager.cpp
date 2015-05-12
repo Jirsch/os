@@ -499,7 +499,7 @@ void BlockChainManager::processClosing()
     }
 
     // indicate that we finished closing the chain
-    finishClosing();
+    _closing = false;
 }
 
 void BlockChainManager::close()

@@ -170,13 +170,6 @@ private:
         _closing = true;
     }
 
-    /*
-     * indicate that the closing process is finished
-     */
-    void finishClosing()
-    {
-        _closing = false;
-    }
 
 public:
 
