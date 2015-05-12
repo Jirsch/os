@@ -275,7 +275,7 @@ int BlockChainManager::init()
     if (pthread_create(&_blockProcessor, NULL, &BlockChainManager::processBlocks, this) !=
         SUCCESS)
     {
-        eixt(FAILURE);
+        exit(FAILURE);
     }
 
     return SUCCESS;
