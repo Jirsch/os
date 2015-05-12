@@ -382,6 +382,7 @@ void BlockChainManager::detach(Block *root)
     while (it != root->getSuccessors().end())
     {
         detach(*it);
+        ++it;
     }
 
     addVacancy(root->getBlockNum());
