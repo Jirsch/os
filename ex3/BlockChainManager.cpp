@@ -8,11 +8,13 @@ int BlockChainManager::getChainSize() const
 {
     int retVal;
 
-    if (isInited()) {
+    if (isInited())
+    {
         retVal = _chainSize;
     }
 
-    else {
+    else
+    {
         retVal = FAILURE;
     }
 
@@ -31,7 +33,8 @@ int BlockChainManager::getMinVacantNum()
 {
     int blockNum;
 
-    if (!this->_vacantBlockNums.empty()) {
+    if (!this->_vacantBlockNums.empty())
+    {
 
         // the min num will be lower than the current number
         int minVacantNum = _currentBlockNum;
@@ -40,7 +43,8 @@ int BlockChainManager::getMinVacantNum()
 
         // finding the minimum vacant number
         for (vector<int>::iterator it = _vacantBlockNums.begin();
-             it != _vacantBlockNums.end(); ++it) {
+             it != _vacantBlockNums.end(); ++it)
+        {
 
             if (*it < minVacantNum)
             {
@@ -54,7 +58,8 @@ int BlockChainManager::getMinVacantNum()
         _vacantBlockNums.erase(minIt);
     }
 
-    else {
+    else
+    {
         // there are no vacant numbers lower than the current one
         blockNum = ++this->_currentBlockNum; // todo: verify that this works
     }
@@ -69,10 +74,12 @@ NewBlockData *BlockChainManager::isPending(int blockNum)
 
     // looking for the given blockNum in the pending list
     for (list<NewBlockData *>::iterator it = getPendingBlocks()->begin();
-         it != getPendingBlocks()->end(); ++it) {
+         it != getPendingBlocks()->end(); ++it)
+    {
         NewBlockData *pendingBlockData = (NewBlockData *) *it;
 
-        if (pendingBlockData->_block->getBlockNum() == blockNum) {
+        if (pendingBlockData->_block->getBlockNum() == blockNum)
+        {
             retVal = pendingBlockData;
             break;
         }
@@ -87,7 +94,8 @@ bool BlockChainManager::isVacant(int blockNum)
 
     // looking for the given blockNum in the vacant blockNum vector
     if (std::find(_vacantBlockNums.begin(), _vacantBlockNums.end(), blockNum) !=
-        _vacantBlockNums.end()) {
+        _vacantBlockNums.end())
+    {
         isVacant = true;
     }
 
@@ -117,13 +125,15 @@ void BlockChainManager::initLongestChains(Block *longest)
 
 void *BlockChainManager::processBlocks(void *args)
 {
-    BlockChainManager* chain = (BlockChainManager*)args;
+    BlockChainManager *chain = (BlockChainManager *) args;
 
-    while (!chain->isClosing()) {
+    while (!chain->isClosing())
+    {
 
         pthread_mutex_lock(&(chain->_pendingLock));
 
-        if (chain->getPendingBlocks()->size() == 0) {
+        if (chain->getPendingBlocks()->size() == 0)
+        {
             pthread_cond_wait(&(chain->_pendingEmptyCond), &(chain->_pendingLock));
         }
 
@@ -135,7 +145,8 @@ void *BlockChainManager::processBlocks(void *args)
         // checking if the block's predecessor should be switched to the real-time longest chain
         if ((blockData->_block->isToLongest() &&
              !chain->isInLongestChain(blockData->_block->getPredecessor()))
-            || chain->isVacant(blockData->_block->getPredecessor()->getBlockNum())) {
+            || chain->isVacant(blockData->_block->getPredecessor()->getBlockNum()))
+        {
 
             // find a new predecessor
             Block *predecessor = chain->getRandomLongestChain();
@@ -145,8 +156,8 @@ void *BlockChainManager::processBlocks(void *args)
 
         // hashing the data
         char *hash = chain->hashBlockData(blockData->_block->getBlockNum(),
-                                   blockData->_block->getPredecessor()->getBlockNum(),
-                                   blockData->_dataToHash, blockData->_dataLength);
+                                          blockData->_block->getPredecessor()->getBlockNum(),
+                                          blockData->_dataToHash, blockData->_dataLength);
 
         // attaching the block to the tree:
         // setting the new block's hashed data
@@ -156,15 +167,18 @@ void *BlockChainManager::processBlocks(void *args)
         blockData->_block->getPredecessor()->addSuccessor(blockData->_block);
 
         // modifying the longestChains list
-        if (chain->isInLongestChain(blockData->_block)) {
+        if (chain->isInLongestChain(blockData->_block))
+        {
             chain->_longestChains.push_back(blockData->_block);
         }
 
         else if (blockData->_block->getChainLength() >
-                chain->_longestChains[DEF_INDEX]->getChainLength()) {
+                 chain->_longestChains[DEF_INDEX]->getChainLength())
+        {
             chain->initLongestChains(blockData->_block);
         }
 
+        chain->_chainSize++;
         delete blockData;
     }
 
@@ -194,7 +208,8 @@ Block *BlockChainManager::buildNewBlock()
 
 int BlockChainManager::addBlock(char *data, int length)
 {
-    if (!isInited() || getChainSize() == INT_MAX) {
+    if (!isInited() || getChainSize() == INT_MAX)
+    {
         return FAILURE;
     }
 
@@ -232,12 +247,15 @@ int BlockChainManager::init()
 
     // initializing the locks
     if (pthread_mutex_init(&_pendingLock, NULL) != SUCCESS ||
-        pthread_cond_init(&_pendingEmptyCond, NULL) != SUCCESS) {
+        pthread_cond_init(&_pendingEmptyCond, NULL) != SUCCESS)
+    {
         return FAILURE;
     }
 
     // creating the thread that will process blocks
-    if (pthread_create(&_blockProcessor, NULL, &BlockChainManager::processBlocks, NULL) != SUCCESS) {
+    if (pthread_create(&_blockProcessor, NULL, &BlockChainManager::processBlocks, this) !=
+        SUCCESS)
+    {
         return FAILURE;
     }
 
@@ -248,23 +266,27 @@ int BlockChainManager::toLongest(int blockNum)
 {
     int returnVal;
 
-    if (!isInited()) {
+    if (!isInited())
+    {
         return FAILURE;
     }
 
     pthread_mutex_lock(&_pendingLock);
 
     // checking if the block is already attached
-    if (isVacant(blockNum)) {
+    if (isVacant(blockNum))
+    {
         returnVal = NOT_EXIST;
     }
 
-    else {
+    else
+    {
         // the blockNum is already attached, unless in pending
         returnVal = ATTACHED;
 
         NewBlockData *pendingBlockData = isPending(blockNum);
-        if (pendingBlockData != NULL) {
+        if (pendingBlockData != NULL)
+        {
             pendingBlockData->_block->setToLongest(true);
             returnVal = SUCCESS;
         }
@@ -279,22 +301,26 @@ int BlockChainManager::attachNow(int blockNum)
 {
     int returnVal;
 
-    if (!isInited()) {
+    if (!isInited())
+    {
         return FAILURE;
     }
 
     pthread_mutex_lock(&_pendingLock);
 
     // checking if the block is already attached
-    if (isVacant(blockNum)) {
+    if (isVacant(blockNum))
+    {
         returnVal = NOT_EXIST;
     }
 
-    else {
+    else
+    {
         NewBlockData *pendingBlockData = isPending(blockNum);
 
         // not in pending -> already attached
-        if (pendingBlockData != NULL) {
+        if (pendingBlockData != NULL)
+        {
             // move blockData to front of pending queue
             getPendingBlocks()->remove(pendingBlockData);
             getPendingBlocks()->push_front(pendingBlockData);
@@ -313,23 +339,28 @@ int BlockChainManager::wasAdded(int blockNum)
 {
     int returnVal;
 
-    if (!isInited()) {
+    if (!isInited())
+    {
         return FAILURE;
     }
 
     pthread_mutex_lock(&_pendingLock);
 
     // checking if the block is already attached
-    if (isVacant(blockNum)) {
+    if (isVacant(blockNum))
+    {
         returnVal = NOT_EXIST;
     }
 
-    else {
-        if (isPending(blockNum) == NULL) {
+    else
+    {
+        if (isPending(blockNum) == NULL)
+        {
             returnVal = FALSE;
         }
 
-        else {
+        else
+        {
             returnVal = TRUE;
         }
     }
@@ -348,7 +379,8 @@ void BlockChainManager::detach(Block *root)
 {
     list<Block *>::iterator it = root->getSuccessors().begin();
 
-    while (it != root->getSuccessors().end()) {
+    while (it != root->getSuccessors().end())
+    {
         detach(*it);
     }
 
@@ -360,12 +392,15 @@ void BlockChainManager::detachChildren(Block *root, Block *except)
 {
     list<Block *>::iterator it = root->getSuccessors().begin();
 
-    while (it != root->getSuccessors().end()) {
-        if ((*it) != except) {
+    while (it != root->getSuccessors().end())
+    {
+        if ((*it) != except)
+        {
             detach(*it);
             root->getSuccessors().erase(it);
         }
-        else {
+        else
+        {
             ++it;
         }
     }
@@ -378,13 +413,15 @@ int BlockChainManager::prune()
     // prevent new block from being attached to pruned parents
     pthread_mutex_lock(&_pendingLock);
 
-    if (isInited() && !isClosing()) {
+    if (isInited() && !isClosing())
+    {
         Block *desiredTail = getRandomLongestChain();
 
         Block *prev, *curr;
         curr = desiredTail;
 
-        while (curr != _genesis) {
+        while (curr != _genesis)
+        {
             prev = curr;
             curr = prev->getPredecessor();
             detachChildren(curr, prev);
@@ -394,7 +431,8 @@ int BlockChainManager::prune()
 
         retVal = SUCCESS;
     }
-    else {
+    else
+    {
         retVal = FAILURE;
     }
 
@@ -406,8 +444,9 @@ int BlockChainManager::prune()
 void BlockChainManager::processClosing()
 {
     // printing the pending blocks and deleting them
-    for (list<NewBlockData*>::iterator it = getPendingBlocks()->begin();
-         it != getPendingBlocks()->end(); ++it) {
+    for (list<NewBlockData *>::iterator it = getPendingBlocks()->begin();
+         it != getPendingBlocks()->end(); ++it)
+    {
         NewBlockData *pendingBlock = (NewBlockData *) *it;
 
         // hashing the data
@@ -439,7 +478,8 @@ void BlockChainManager::processClosing()
 
 void BlockChainManager::close()
 {
-    if (isInited()) {
+    if (isInited())
+    {
         startClosing();
     }
 }
@@ -450,7 +490,8 @@ int BlockChainManager::returnOnClose()
     {
         return IS_NOT_CLOSING;
     }
-    while (!finishedClosing()) {
+    while (!finishedClosing())
+    {
         // do nothing - continue closing
     }
 
