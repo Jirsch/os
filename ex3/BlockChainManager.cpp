@@ -8,11 +8,10 @@ int BlockChainManager::getChainSize() const
 {
     int retVal;
 
-    if (isInited())
+    if (isInited() || isClosing())
     {
         retVal = _chainSize;
     }
-
     else
     {
         retVal = FAILURE;
@@ -24,12 +23,15 @@ int BlockChainManager::getChainSize() const
 BlockChainManager::BlockChainManager()
 {
     srand(time(NULL));
-
-    init();
 }
 
 int BlockChainManager::getMinVacantNum()
 {
+    if (pthread_mutex_lock(&_vacantLock) != SUCCESS)
+    {
+        exit(FAILURE);
+    }
+
     int blockNum;
 
     if (!this->_vacantBlockNums.empty())
@@ -56,11 +58,15 @@ int BlockChainManager::getMinVacantNum()
         blockNum = minVacantNum;
         _vacantBlockNums.erase(minIt);
     }
-
     else
     {
         // there are no vacant numbers lower than the current one
         blockNum = ++this->_currentBlockNum;
+    }
+
+    if (pthread_mutex_unlock(&_vacantLock) != SUCCESS)
+    {
+        exit(FAILURE);
     }
 
     return blockNum;
@@ -116,7 +122,7 @@ char *BlockChainManager::hashBlockData(int blockNum, int predecessorBlockNum, ch
     return generate_hash(dataToHash, dataLength, nonce);
 }
 
-void BlockChainManager::initLongestChains(Block *longest)
+void BlockChainManager::reInitLongestChains(Block *longest)
 {
     _longestChains.clear();
     _longestChains.push_back(longest);
@@ -129,17 +135,26 @@ void *BlockChainManager::processBlocks(void *args)
     while (!chain->isClosing())
     {
 
-        pthread_mutex_lock(&(chain->_pendingLock));
+        if (pthread_mutex_lock(&(chain->_pendingLock)) != SUCCESS)
+        {
+            exit(FAILURE);
+        }
 
         if (chain->getPendingBlocks()->size() == 0)
         {
-            pthread_cond_wait(&(chain->_pendingEmptyCond), &(chain->_pendingLock));
+            if (pthread_cond_wait(&(chain->_pendingEmptyCond), &(chain->_pendingLock)) != SUCCESS)
+            {
+                exit(FAILURE);
+            }
         }
 
         NewBlockData *blockData = chain->getPendingBlocks()->front();
         chain->getPendingBlocks()->pop_front();
 
-        pthread_mutex_unlock(&(chain->_pendingLock));
+        if (pthread_mutex_unlock(&(chain->_pendingLock)) != SUCCESS)
+        {
+            exit(FAILURE);
+        }
 
         // checking if the block's predecessor should be switched to the real-time longest chain
         if ((blockData->_block->isToLongest() &&
@@ -174,7 +189,7 @@ void *BlockChainManager::processBlocks(void *args)
         else if (blockData->_block->getChainLength() >
                  chain->_longestChains[DEF_INDEX]->getChainLength())
         {
-            chain->initLongestChains(blockData->_block);
+            chain->reInitLongestChains(blockData->_block);
         }
 
         chain->_chainSize++;
@@ -233,6 +248,11 @@ int BlockChainManager::addBlock(char *data, int length)
 
 int BlockChainManager::init()
 {
+    if (isInited() || isClosing())
+    {
+        return FAILURE;
+    }
+
     // creating the genesis block and pushing it to the longestChains list
     _genesis = new Block(0, NULL);
     _longestChains.push_back(_genesis);
@@ -242,20 +262,20 @@ int BlockChainManager::init()
     _vacantBlockNums = vector<int>();
     _inited = true;
     _closing = false;
-    _finishedClosing = false;
 
     // initializing the locks
     if (pthread_mutex_init(&_pendingLock, NULL) != SUCCESS ||
-        pthread_cond_init(&_pendingEmptyCond, NULL) != SUCCESS)
+        pthread_cond_init(&_pendingEmptyCond, NULL) != SUCCESS ||
+        pthread_mutex_init(&_vacantLock, NULL) != SUCCESS)
     {
-        return FAILURE;
+        exit(FAILURE);
     }
 
     // creating the thread that will process blocks
     if (pthread_create(&_blockProcessor, NULL, &BlockChainManager::processBlocks, this) !=
         SUCCESS)
     {
-        return FAILURE;
+        eixt(FAILURE);
     }
 
     return SUCCESS;
@@ -428,7 +448,7 @@ int BlockChainManager::prune()
             detachChildren(curr, prev);
         }
 
-        initLongestChains(desiredTail);
+        reInitLongestChains(desiredTail);
 
         retVal = SUCCESS;
     }
@@ -469,7 +489,8 @@ void BlockChainManager::processClosing()
 
     // destroy locks
     if (pthread_mutex_destroy(&_pendingLock) != SUCCESS ||
-        pthread_cond_destroy(&_pendingEmptyCond) != SUCCESS)
+        pthread_cond_destroy(&_pendingEmptyCond) != SUCCESS ||
+        pthread_mutex_destroy(&_vacantLock) != SUCCESS)
     {
         exit(FAILURE);
     }
@@ -492,9 +513,10 @@ int BlockChainManager::returnOnClose()
     {
         return IS_NOT_CLOSING;
     }
-    while (!finishedClosing())
+
+    if (pthread_join(_blockProcessor, NULL) != SUCCESS)
     {
-        // do nothing - continue closing
+        exit(FAILURE);
     }
 
     return SUCCESS;

@@ -19,7 +19,7 @@ ANSWERS:
 is the cause for multi-pointing. The main parameter here is the ratio between rate of incoming
 blocks and the duration of hash computation. We can change it via choice of quicker hash
 
- 2. To rid ourselves of pruning, we could consider treating each block as if it was marked with
- the toLongest flag, thus parent computation will happen on-attach and thus the chain will
- continue always as a list rather than a tree
+2. To rid ourselves of pruning, we could consider treating each block as if it was marked with
+the toLongest flag, thus parent computation will happen on-attach and thus the chain will
+continue always as a list rather than a tree
 

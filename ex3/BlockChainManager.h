@@ -75,9 +75,6 @@ private:
     // indicates if the chain is in a closing process
     bool _closing;
 
-    // indicates if the chain has finished its closing process
-    bool _finishedClosing;
-
     // will hold the Block numbers that aren't in use and are lower than _currentBlockNum
     vector<int> _vacantBlockNums;
 
@@ -95,6 +92,8 @@ private:
 
     // the condition variable of the pending list
     pthread_cond_t _pendingEmptyCond;
+
+    pthread_mutex_t _vacantLock;
 
     // the thread that processes the pending blocks
     pthread_t _blockProcessor;
@@ -176,7 +175,7 @@ private:
      */
     void finishClosing()
     {
-        _finishedClosing = true;
+        _closing = false;
     }
 
 public:
@@ -261,15 +260,7 @@ public:
     /*
      * initialize the longest Chains list
      */
-    void initLongestChains(Block *longest);
-
-    /*
-     * return true if the chain has finished its closing process, false otherwise
-     */
-    bool finishedClosing()
-    {
-        return _finishedClosing;
-    }
+    void reInitLongestChains(Block *longest);
 
     /*
      * return the pending blocks list

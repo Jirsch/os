@@ -17,14 +17,7 @@ int init_blockchain()
         gChainManager = new BlockChainManager();
     }
 
-    if (gChainManager->isInited())
-    {
-        return FAILURE;
-    }
-
-    gChainManager->init();
-
-    return 0;
+    return gChainManager->init();
 }
 
 int add_block(char *data, int length)
