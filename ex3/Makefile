@@ -7,14 +7,13 @@ LIBOBJ=$(LIBSRC:.cpp=.o)
 
 INCS=-I.
 CFLAGS = -Wall -g -std=c++11 $(INCS)
-LOADLIBES = -L./
 
-UTHREADSLIB = libuthreads.a
-TARGETS = $(UTHREADSLIB)
+EXLIB = libblockchain.a
+TARGETS = $(EXLIB)
 
 TAR=tar
 TARFLAGS=-cvf
-TARNAME=ex2.tar
+TARNAME=ex3.tar
 TARSRCS=$(LIBSRC) $(LIBHEADER) Makefile README
 
 all: $(TARGETS)
@@ -24,7 +23,7 @@ $(TARGETS): $(LIBOBJ)
 	$(RANLIB) $@
 
 clean:
-	$(RM) $(TARGETS) $(UTHREADSLIB) $(OBJ) $(LIBOBJ) *~ *core
+	$(RM) $(TARGETS) $(EXLIB) $(OBJ) $(LIBOBJ) *~ *core
 
 depend:
 	makedepend -- $(CFLAGS) -- $(SRC) $(LIBSRC)

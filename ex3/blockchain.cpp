@@ -8,7 +8,7 @@ using std::vector;
 using std::list;
 
 
-BlockChainManager *gChainManager;
+BlockChainManager *gChainManager=NULL;
 
 int init_blockchain()
 {
