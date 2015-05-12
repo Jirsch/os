@@ -489,6 +489,7 @@ void BlockChainManager::processClosing()
 
     _vacantBlockNums.clear();
     _longestChains.clear();
+    _pendingBlocks.clear();
 
     // destroy locks
     if (pthread_mutex_destroy(&_pendingLock) != SUCCESS ||
