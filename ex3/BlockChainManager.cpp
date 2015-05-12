@@ -385,17 +385,9 @@ void BlockChainManager::detach(Block *root)
         it = root->getSuccessors().erase(it);
     }
 
-    if (root->isGenesis())
-    {
-        std::cout << "finished genesis children" << std::endl;
-    }
-
-    int num = root->getBlockNum();
     addVacancy(root->getBlockNum());
-    std::cout << "Deleteing: " << num << std::endl;
 
     delete root;
-    std::cout << "Deleted: " << num << std::endl;
 }
 
 void BlockChainManager::detachChildren(Block *root, Block *except)

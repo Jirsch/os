@@ -66,6 +66,7 @@ int return_on_close()
 {
 	int res = gChainManager->returnOnClose();
     delete gChainManager;
+    gChainManager = NULL;
     return res;
 }
 
