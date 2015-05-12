@@ -115,36 +115,36 @@ void BlockChainManager::initLongestChains(Block *longest)
     _longestChains.push_back(longest);
 }
 
-static void *BlockChainManager::processBlocks(void *args)
+void *BlockChainManager::processBlocks(void *args)
 {
     BlockChainManager* chain = (BlockChainManager*)args;
 
-    while (!isClosing()) {
+    while (!chain->isClosing()) {
 
         pthread_mutex_lock(&_pendingLock);
 
-        if (getPendingBlocks()->size() == 0) {
+        if (chain->getPendingBlocks()->size() == 0) {
             pthread_cond_wait(&_pendingEmptyCond, &_pendingLock);
         }
 
-        NewBlockData *blockData = getPendingBlocks()->front();
-        getPendingBlocks()->pop_front();
+        NewBlockData *blockData = chain->getPendingBlocks()->front();
+        chain->getPendingBlocks()->pop_front();
 
         pthread_mutex_unlock(&_pendingLock);
 
         // checking if the block's predecessor should be switched to the real-time longest chain
         if ((blockData->_block->isToLongest() &&
-             !isInLongestChain(blockData->_block->getPredecessor()))
-            || isVacant(blockData->_block->getPredecessor()->getBlockNum())) {
+             !chain->isInLongestChain(blockData->_block->getPredecessor()))
+            || chain->isVacant(blockData->_block->getPredecessor()->getBlockNum())) {
 
             // find a new predecessor
-            Block *predecessor = getRandomLongestChain();
+            Block *predecessor = chain->getRandomLongestChain();
 
             blockData->_block->setPredecessor(predecessor);
         }
 
         // hashing the data
-        char *hash = hashBlockData(blockData->_block->getBlockNum(),
+        char *hash = chain->hashBlockData(blockData->_block->getBlockNum(),
                                    blockData->_block->getPredecessor()->getBlockNum(),
                                    blockData->_dataToHash, blockData->_dataLength);
 
@@ -156,20 +156,20 @@ static void *BlockChainManager::processBlocks(void *args)
         blockData->_block->getPredecessor()->addSuccessor(blockData->_block);
 
         // modifying the longestChains list
-        if (isInLongestChain(blockData->_block)) {
-            _longestChains.push_back(blockData->_block);
+        if (chain->isInLongestChain(blockData->_block)) {
+            chain->_longestChains.push_back(blockData->_block);
         }
 
         else if (blockData->_block->getChainLength() >
-                 _longestChains[DEF_INDEX]->getChainLength()) {
-            initLongestChains(blockData->_block);
+                chain->_longestChains[DEF_INDEX]->getChainLength()) {
+            chain->initLongestChains(blockData->_block);
         }
 
         delete blockData;
     }
 
     // after the closing flag was turned on
-    processClosing();
+    chain->processClosing();
 
     pthread_exit(NULL);
 }
