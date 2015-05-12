@@ -401,7 +401,7 @@ void BlockChainManager::detachChildren(Block *root, Block *except)
         if ((*it) != except)
         {
             detach(*it);
-            root->getSuccessors().erase(it);
+            it = root->getSuccessors().erase(it);
         }
         else
         {
