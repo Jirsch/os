@@ -386,7 +386,8 @@ void BlockChainManager::detach(Block *root)
     }
 
     addVacancy(root->getBlockNum());
-    std::cout << "Deleteing: " << root->getBlockNum() << std::endl;
+    std::cout << "Deleteing: " << root->getBlockNum() << " Parent: " << root->getPredecessor()->getBlockNum()
+    << std::endl;
     delete root;
     std::cout << "Deleted: " << root->getBlockNum() << std::endl;
 }
