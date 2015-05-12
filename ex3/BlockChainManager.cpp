@@ -121,16 +121,16 @@ void *BlockChainManager::processBlocks(void *args)
 
     while (!chain->isClosing()) {
 
-        pthread_mutex_lock(&_pendingLock);
+        pthread_mutex_lock(&(chain->_pendingLock));
 
         if (chain->getPendingBlocks()->size() == 0) {
-            pthread_cond_wait(&_pendingEmptyCond, &_pendingLock);
+            pthread_cond_wait(&_pendingEmptyCond, &(chain->_pendingLock));
         }
 
         NewBlockData *blockData = chain->getPendingBlocks()->front();
         chain->getPendingBlocks()->pop_front();
 
-        pthread_mutex_unlock(&_pendingLock);
+        pthread_mutex_unlock(&(chain->_pendingLock));
 
         // checking if the block's predecessor should be switched to the real-time longest chain
         if ((blockData->_block->isToLongest() &&
