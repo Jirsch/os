@@ -356,12 +356,12 @@ int BlockChainManager::wasAdded(int blockNum)
     {
         if (isPending(blockNum) == NULL)
         {
-            returnVal = FALSE;
+            returnVal = TRUE;
         }
 
         else
         {
-            returnVal = TRUE;
+            returnVal = FALSE;
         }
     }
 
