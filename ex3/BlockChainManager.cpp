@@ -406,7 +406,7 @@ int BlockChainManager::prune()
 void BlockChainManager::processClosing()
 {
     // printing the pending blocks and deleting them
-    for (vector<int>::iterator it = getPendingBlocks()->begin();
+    for (list<NewBlockData*>::iterator it = getPendingBlocks()->begin();
          it != getPendingBlocks()->end(); ++it) {
         NewBlockData *pendingBlock = (NewBlockData *) *it;
 
