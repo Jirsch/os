@@ -12,8 +12,8 @@
 #include <algorithm>
 #include <queue>
 #include <string.h>
+#include <iostream>
 
-#define INT_MAX 20000 // todo: what is max_int? do we define it?
 
 #define SUCCESS 0
 #define FAILURE -1
