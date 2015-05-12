@@ -28,7 +28,6 @@ BlockChainManager::BlockChainManager()
     init();
 }
 
-// TODO: maybe keep sorted and move from O(N)->O(1)
 int BlockChainManager::getMinVacantNum()
 {
     int blockNum;
@@ -61,7 +60,7 @@ int BlockChainManager::getMinVacantNum()
     else
     {
         // there are no vacant numbers lower than the current one
-        blockNum = ++this->_currentBlockNum; // todo: verify that this works
+        blockNum = ++this->_currentBlockNum;
     }
 
     return blockNum;
@@ -443,10 +442,8 @@ int BlockChainManager::prune()
     return retVal;
 }
 
-// TODO: make sure this is private
 void BlockChainManager::processClosing()
 {
-    // TODO: remove redundant bool, inline assignments
     setIsInited(false);
 
     // printing the pending blocks and deleting them
@@ -470,11 +467,12 @@ void BlockChainManager::processClosing()
     // deleting the chain
     detach(_genesis);
 
-    std::cout << "detach genesis end" << std::endl;
-
-    // destroying the locks. todo: check for errors? returning void
-    pthread_mutex_destroy(&_pendingLock);
-    pthread_cond_destroy(&_pendingEmptyCond);
+    // destroy locks
+    if (pthread_mutex_destroy(&_pendingLock) != SUCCESS ||
+        pthread_cond_destroy(&_pendingEmptyCond) != SUCCESS)
+    {
+        exit(FAILURE);
+    }
 
     // indicate that we finished closing the chain
     finishClosing();

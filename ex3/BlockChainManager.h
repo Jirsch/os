@@ -41,7 +41,7 @@ typedef struct NewBlockData
             block), _dataLength(dataLength)
     {
         _dataToHash = new char[dataLength];
-        memcpy(_dataToHash, dataToHash, _dataLength); // todo: check if +1 is necessary
+        memcpy(_dataToHash, dataToHash, _dataLength);
     }
 
     Block* getBlock()
@@ -155,6 +155,30 @@ private:
      */
     void addVacancy(int blockNum);
 
+    /*
+     * return true if the chain is in a closing process, false otherwise
+     */
+    bool isClosing() const
+    {
+        return _closing;
+    }
+
+    /*
+     * start a closing process
+     */
+    void startClosing()
+    {
+        _closing = true;
+    }
+
+    /*
+     * indicate that the closing process is finished
+     */
+    void finishClosing()
+    {
+        _finishedClosing = true;
+    }
+
 public:
 
     /*
@@ -233,30 +257,6 @@ public:
      * return 0 on success, -2 if the chain wasn't in a closing process, and -1 on failure
      */
     int returnOnClose();
-
-    /*
-     * return true if the chain is in a closing process, false otherwise
-     */
-    bool isClosing() const
-    {
-        return _closing;
-    }
-
-    /*
-     * start a closing process
-     */
-    void startClosing()
-    {
-        _closing = true;
-    }
-
-    /*
-     * indicate that the closing process is finished
-     */
-    void finishClosing()
-    {
-        _finishedClosing = true;
-    }
 
     /*
      * initialize the longest Chains list
