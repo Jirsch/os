@@ -385,11 +385,18 @@ void BlockChainManager::detach(Block *root)
         it = root->getSuccessors().erase(it);
     }
 
+    if (root->isGenesis())
+    {
+        std::cout << "finished genesis children" << std::endl;
+    }
+
+    int num = root->getBlockNum();
     addVacancy(root->getBlockNum());
-    std::cout << "Deleteing: " << root->getBlockNum() << " Parent: " << root->getPredecessor()->getBlockNum()
-    << std::endl;
+    std::cout << "Deleteing: " << num << " Parent: " <<
+    root->getPredecessor()->getBlockNum()   << std::endl;
+
     delete root;
-    std::cout << "Deleted: " << root->getBlockNum() << std::endl;
+    std::cout << "Deleted: " << num << std::endl;
 }
 
 void BlockChainManager::detachChildren(Block *root, Block *except)
@@ -421,21 +428,16 @@ int BlockChainManager::prune()
     {
         Block *desiredTail = getRandomLongestChain();
 
-        std::cout << "Chose Tail" << std::endl;
-
         Block *prev, *curr;
         curr = desiredTail;
 
         while (curr != _genesis)
         {
-            std::cout << "detach start" << std::endl;
             prev = curr;
             curr = prev->getPredecessor();
             detachChildren(curr, prev);
-            std::cout << "detach end" << std::endl;
         }
 
-        std::cout << "all detach end" << std::endl;
         initLongestChains(desiredTail);
 
         retVal = SUCCESS;
@@ -476,6 +478,8 @@ void BlockChainManager::processClosing()
 
     // deleting the chain
     detach(_genesis);
+
+    std::cout << "detach genesis end" << std::endl;
 
     // destroying the locks. todo: check for errors? returning void
     pthread_mutex_destroy(&_pendingLock);
