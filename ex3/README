@@ -13,6 +13,10 @@ Makefile
 README
 
 REMARKS:
+cond variable on _pending (processor and addBlock use this)
+mutex vacantIds (only get minimal looks, to prevent two blocks using same id)
+attach_now and toLongest - describe behaviour
+closing behaviour
 
 ANSWERS:
 1. The separation between choosing a parent and the attaching (caused by async hash calculation)
