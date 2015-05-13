@@ -14,7 +14,7 @@ README
 
 REMARKS:
 
-We'll write a bit about every library function and explain how it works and why/
+We'll write a bit about every library function and explain how it works and why
 
 init_blockchain:
 
@@ -28,65 +28,65 @@ We create this struct and send it to the pending list, from which the daemon thr
 the new NewBlockDatas, hash the data and attach it to the chain. We find the father by holding
 a vector with all the lowest blocks and choosing one randomly.
 
-In this function we lock the pendingBlock list to prevent to blocks form being added at the same
-time and we lock the vacantNumbers list so that two blocks will not get the same number.
+In this function we signal the daemon that the pending list is not empty (using a CV) and we lock
+the vacantNumbers list so that two blocks will not get the same number.
 
 to_longest:
 
 every Block object contains a bool flag named toLongest which indicates if the block should
- be attached to the real-time longest block. In this function we update the flag of the block
- with the given blockNum to "true", so that the daemon will know that.
+be attached to the real-time longest block. In this function we update the flag of the block
+with the given blockNum to "true", so that the daemon will know that.
 
- We lock the pendingBlock list because we are looking for the block in the list and we don't
- want it to "show up" after we didn't find it.
+We lock the pendingBlock list because we are looking for the block in the list and we don't
+want it to "disappear" before we find it.
 
- attach_now:
+attach_now:
 
- In this function we move the block with the given blockNum to the beginning of the pendingBLock
- list. That way it will be the next block to be attached.
+In this function we move the block with the given blockNum to the beginning of the pendingBLock
+list. That way it will be the next block to be attached (unless other attach_now occur).
 
- We lock the pendingBlock list because we are looking for the block in the list and we don't
- want it to "show up" after we didn't find it.
+We lock the pendingBlock list because we are looking for the block in the list and we don't
+want it to "disappear" before we find it.
 
- was_added:
+was_added:
 
- In this function we check if the block was added by looking for the blockNum in the vacantNums
- list, the pendingBlock list. If it's not in the two options above it is attached.
+In this function we check if the block was added by looking for the blockNum in the vacantNums
+list, the pendingBlock list. If it's not in the two options above it is attached.
 
-  We lock the pendingBlock list because we are looking for the block in the list and we don't
-  want it to "show up" after we didn't find it.
+We lock the pendingBlock list because we are looking for the block in the list and we don't
+want it to "disappear" before we find it.
 
- chain_size:
+chain_size:
 
- The BLockChainManager holds a member that indicates the size so we return it.
+The BLockChainManager holds a member that indicates the size so we return it.
 
- There is no need for blocking. if the chain is changed it will be after the call to chain_size.
+There is no need for blocking. if the chain is changed it will be after the call to chain_size.
 
- prune_chain:
+prune_chain:
 
- In this function we randomly select one of the longest chains and start going up the chain and
- pruning the branches that are not the ones that we've gone up from (every Block object holds
- pointers to its successors).
+In this function we randomly select one of the longest chains and start going up the chain and
+pruning the branches that are not the ones that we've gone up from (every Block object holds
+pointers to its successors).
 
- We lock the pendingBlock list so that we wont add a new block to a father that was pruned.
+We lock the pendingBlock list so that we wont add a new block to a father that was pruned.
 
- close_chain:
+close_chain:
 
- In this function all we do is turn on a flag that indicates that the closing process has started.
-  In the daemon thread we run on a while loop that runs as long as the closing flag is off, so
-   after calling close_chain the daemon will stop processing blocks and start closing the chain.
+In this function all we do is turn on a flag that indicates that the closing process has started.
+In the daemon thread we run on a while loop that runs as long as the closing flag is off, so
+after calling close_chain the daemon will stop processing blocks and start closing the chain.
 
- No blocking is needed because the daemon will finish processing the current block and then
- move on to the closing process.
+No blocking is needed because the daemon will finish processing the current block and then
+move on to the closing process.
 
- return_on_close:
+return_on_close:
 
- this functions checks first if the closing process has started. if so, it waits until the daemon
- thread finished the process and returning from the function using pthread_join which does exactly
-  that.
+this functions checks first if the closing process has started. if so, it waits until the daemon
+thread finished the process and returning from the function using pthread_join which does exactly
+that.
 
 
-As mentioned aboce, throught the library we use a cond variable on _pendingBlocks
+As mentioned above, throughout the library we use a cond variable on _pendingBlocks
 (processor and addBlock use this), a mutex on vacantIds (only get minimal looks, to prevent two
 blocks using same id).
 

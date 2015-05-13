@@ -290,7 +290,10 @@ int BlockChainManager::toLongest(int blockNum)
         return FAILURE;
     }
 
-    pthread_mutex_lock(&_pendingLock);
+    if (pthread_mutex_lock(&_pendingLock)!=SUCCESS)
+    {
+        exit(FAILURE);
+    }
 
     // checking if the block is already attached
     if (isVacant(blockNum))
@@ -311,7 +314,10 @@ int BlockChainManager::toLongest(int blockNum)
         }
     }
 
-    pthread_mutex_unlock(&_pendingLock);
+    if (pthread_mutex_unlock(&_pendingLock)!=SUCCESS)
+    {
+        exit(FAILURE);
+    }
 
     return returnVal;
 }
@@ -325,7 +331,10 @@ int BlockChainManager::attachNow(int blockNum)
         return FAILURE;
     }
 
-    pthread_mutex_lock(&_pendingLock);
+    if (pthread_mutex_lock(&_pendingLock)!=SUCCESS)
+    {
+        exit(FAILURE);
+    }
 
     // checking if the block is already attached
     if (isVacant(blockNum))
@@ -348,7 +357,10 @@ int BlockChainManager::attachNow(int blockNum)
         returnVal = SUCCESS;
     }
 
-    pthread_mutex_unlock(&_pendingLock);
+    if (pthread_mutex_unlock(&_pendingLock)!=SUCCESS)
+    {
+        exit(FAILURE);
+    }
 
     return returnVal;
 
@@ -363,7 +375,10 @@ int BlockChainManager::wasAdded(int blockNum)
         return FAILURE;
     }
 
-    pthread_mutex_lock(&_pendingLock);
+    if (pthread_mutex_lock(&_pendingLock)!=SUCCESS)
+    {
+        exit(FAILURE);
+    }
 
     // checking if the block is already attached
     if (isVacant(blockNum))
@@ -384,7 +399,10 @@ int BlockChainManager::wasAdded(int blockNum)
         }
     }
 
-    pthread_mutex_unlock(&_pendingLock);
+    if (pthread_mutex_unlock(&_pendingLock)!=SUCCESS)
+    {
+        exit(FAILURE);
+    }
 
     return returnVal;
 }
@@ -432,7 +450,10 @@ int BlockChainManager::prune()
     int retVal;
 
     // prevent new block from being attached to pruned parents
-    pthread_mutex_lock(&_pendingLock);
+    if (pthread_mutex_lock(&_pendingLock)!=SUCCESS)
+    {
+        exit(FAILURE);
+    }
 
     if (isInited() && !isClosing())
     {
@@ -457,7 +478,10 @@ int BlockChainManager::prune()
         retVal = FAILURE;
     }
 
-    pthread_mutex_unlock(&_pendingLock);
+    if (pthread_mutex_unlock(&_pendingLock))
+    {
+        exit(FAILURE);
+    }
 
     return retVal;
 }
