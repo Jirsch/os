@@ -1,0 +1,28 @@
+orenbm21, jirsch
+Oren BenMeir (200143139), Jonathan Hirsch (200357697)
+Ex: 3
+
+FILES:
+Block.cpp - Code for Block class, used to store block specific info (hash, parent etc.)
+Block.h - Declare the thread class
+BlockChainManager.cpp - Code for the BlockChainManager class, which does the actual logic of
+                        maintaining a BlockChain as defined in the exercise
+BlockChainManager.h - Header for the Manager class
+blockchain.h - Declaration of library functions
+Makefile
+README
+
+REMARKS:
+
+ANSWERS:
+1. The separation between choosing a parent and the attaching (caused by async hash calculation)
+is the cause for multi-pointing. The main parameter here is the ratio between rate of incoming
+blocks and the duration of hash computation. We can change it via choice of quicker hash
+
+2. To rid ourselves of pruning, we could consider treating each block as if it was marked with
+the toLongest flag, thus parent computation will happen on-attach and thus the chain will
+continue always as a list rather than a tree
+
+3. We didn't deal with the case where prune and add_block are called at the same time, which may
+cause the new block to receive a non-minimal blockNum. This is caused by the fact that addBlock
+should not be blocking.
