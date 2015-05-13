@@ -1,6 +1,6 @@
 orenbm21, jirsch
 Oren BenMeir (200143139), Jonathan Hirsch (200357697)
-EX: 3
+Ex: 3
 
 FILES:
 Block.cpp - Code for Block class, used to store block specific info (hash, parent etc.)
@@ -23,3 +23,6 @@ blocks and the duration of hash computation. We can change it via choice of quic
 the toLongest flag, thus parent computation will happen on-attach and thus the chain will
 continue always as a list rather than a tree
 
+3. We didn't deal with the case where prune and add_block are called at the same time, which may
+cause the new block to receive a non-minimal blockNum. This is caused by the fact that addBlock
+should not be blocking.
