@@ -57,6 +57,13 @@ static const char *const OPEN_FUNC = "open";
 
 static const char *const ACCESS_FUNC = "access";
 
+static const char *const GETATTR_FUNC = "getattr";
+
+static const char *const FGETATTR_FUNC = "fgetattr";
+
+
+// TODO: handle logfile in functions
+
 void handleSystemError(const char *msg)
 {
     std::cerr << SYSTEM_ERROR_PREFIX << msg << std::endl;
@@ -80,7 +87,26 @@ static void toActualPath(char fpath[PATH_MAX], const char *path)
  */
 int caching_getattr(const char *path, struct stat *statbuf)
 {
-    return 0;
+    if (logFunctionEntry(GETATTR_FUNC) < SUCCESS)
+    {
+        return -errno;
+    }
+
+    // file path too long
+    if (strlen(path) > PATH_MAX - strlen(STATE->_rootDir) - 1)
+    {
+        return -EINVAL;
+    }
+
+    char actualPath[PATH_MAX];
+    toActualPath(actualPath, path);
+
+    if (lstat(actualPath, statbuf) == FAILURE)
+    {
+        return -errno;
+    }
+    
+    return SUCCESS;
 }
 
 /**
@@ -97,7 +123,22 @@ int caching_getattr(const char *path, struct stat *statbuf)
  */
 int caching_fgetattr(const char *path, struct stat *statbuf, struct fuse_file_info *fi)
 {
-    return 0;
+    if (logFunctionEntry(FGETATTR_FUNC) < SUCCESS)
+    {
+        return -errno;
+    }
+
+    if (strcmp(path, "/") == 0)
+    {
+        return caching_getattr(path, statbuf);
+    }
+
+    if (fstat(fi->fh, statbuf) == FAILURE)
+    {
+        return -errno;
+    }
+
+    return SUCCESS;
 }
 
 /**
