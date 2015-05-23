@@ -18,6 +18,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <dirent.h>
+#include <unistd.h>
 
 using namespace std;
 
@@ -27,7 +28,7 @@ struct fuse_operations caching_oper;
 static const int FAILURE = -1;
 static const int SYS_ERROR = 1;
 static const char *const LOGGER_FILENAME = "/.filesystem.log";
-static const char *const SYSTEM_ERROR_PREFIX = "System Error: "
+static const char *const SYSTEM_ERROR_PREFIX = "System Error: ";
 static const char *const ROOTDIR_ERROR_MSG = "Cannot convert rootDir to absolute path";
 static const char *const ROOTDIR_TOO_LONG_ERROR_MSG = "rootDir is to long to create the logger file";
 static const char *const OPEN_LOGGER_ERROR_MSG = "Cannot open logger file";
@@ -47,6 +48,8 @@ static const int SUCCESS = 0;
 static const char *const READDIR_FUNC = "readdir";
 
 static const char *const OPENDIR_FUNC = "opendir";
+
+static const char *const RELEASE_FUNC = "release";
 
 void handleSystemError(const char *msg)
 {
@@ -185,7 +188,17 @@ int caching_flush(const char *path, struct fuse_file_info *fi)
  */
 int caching_release(const char *path, struct fuse_file_info *fi)
 {
-    return 0;
+    if (logFunctionEntry(RELEASE_FUNC) < SUCCESS)
+    {
+        return -errno;
+    }
+
+    if (close(fi->fh) == FAILURE )
+    {
+        return -errno;
+    }
+
+    return SUCCESS;
 }
 
 /** Open directory
