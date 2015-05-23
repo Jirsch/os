@@ -295,7 +295,7 @@ int main(int argc, char* argv[]){
     //TODO: make sure arguments are valid (4 arguments, valid sizes)
     //TODO: create Private data
     //TODO: Allocate cache
-
+    //TODO: init log
 
     argv[1] = argv[2];
     for (int i = 2; i< (argc - 1); i++){
