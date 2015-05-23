@@ -105,7 +105,7 @@ int caching_getattr(const char *path, struct stat *statbuf)
     {
         return -errno;
     }
-    
+
     return SUCCESS;
 }
 
@@ -128,7 +128,7 @@ int caching_fgetattr(const char *path, struct stat *statbuf, struct fuse_file_in
         return -errno;
     }
 
-    if (strcmp(path, "/") == 0)
+    if (strncmp(path, "/", 2) == 0)
     {
         return caching_getattr(path, statbuf);
     }
@@ -398,7 +398,42 @@ int caching_releasedir(const char *path, struct fuse_file_info *fi)
 /** Rename a file */
 int caching_rename(const char *path, const char *newpath)
 {
-    return 0;
+    if (logFunctionEntry(ACCESS_FUNC) < SUCCESS)
+    {
+        return -errno;
+    }
+
+    // file path too long
+    if (strlen(path) > PATH_MAX - strlen(STATE->_rootDir) - 1 ||
+            strlen(newpath) > PATH_MAX - strlen(STATE->_rootDir) - 1 )
+    {
+        return -EINVAL;
+    }
+
+    char actualPath[PATH_MAX];
+    char actualNewPath[PATH_MAX];
+
+    toActualPath(actualPath, path);
+    toActualPath(actualNewPath, newpath);
+
+    if (rename(actualPath, actualNewPath) != SUCCESS)
+    {
+        return -errno;
+    }
+
+    // rename paths in cache
+    for (int i=0; i< STATE->_numOfTakenBlocks; ++i )
+    {
+        if (strncmp( path, STATE->_blocks[i]._fileName, PATH_MAX ) == 0)
+        {
+            delete[] STATE->_blocks[i]._fileName;
+
+            STATE->_blocks[i]._fileName = new char[strlen(newpath)+1];
+            memcpy(STATE->_blocks[i]._fileName, newpath, strlen(newpath)+1);
+        }
+    }
+
+    return SUCCESS;
 }
 
 /**
