@@ -12,11 +12,28 @@
 //todo: remove this
 #include <osxfuse/fuse.h>
 #include <cstdio>
+#include <cstdlib>
+#include "Logger.h"
 
 using namespace std;
 
 struct fuse_operations caching_oper;
 
+typedef struct CacheBlock{
+    char* _fileName;
+    int _accessCounter;
+    size_t _start;
+    size_t _end;
+    char* _data;
+} CacheBlock;
+
+typedef struct PrivateData{
+    size_t _blockSize;
+    int _numOfBlocks;
+    CacheBlock* _blocks;
+    char* _rootDir;
+    Logger* _logger;
+} PrivateData;
 
 /** Get file attributes.
  *
@@ -274,6 +291,12 @@ void init_caching_oper()
 int main(int argc, char* argv[]){
 
     init_caching_oper();
+
+    //TODO: make sure arguments are valid (4 arguments, valid sizes)
+    //TODO: create Private data
+    //TODO: Allocate cache
+
+
     argv[1] = argv[2];
     for (int i = 2; i< (argc - 1); i++){
         argv[i] = NULL;
@@ -281,6 +304,7 @@ int main(int argc, char* argv[]){
     argv[2] = (char*) "-s";
     argc = 3;
 
+    // TODO: pass in privateData
     int fuse_stat = fuse_main(argc, argv, &caching_oper, NULL);
     return fuse_stat;
 }
