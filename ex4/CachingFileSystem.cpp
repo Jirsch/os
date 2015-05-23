@@ -37,6 +37,8 @@ static const char *const CACHE_ALLOC_ERROR_MSG = "Cannot allocate the desired sp
 
 static const char *const INIT_FUNC = "init";
 
+static const char *const DESTROY_FUNC = "destroy";
+
 void handleSystemError(const char *msg)
 {
     std::cerr << SYSTEM_ERROR_PREFIX << msg << std::endl;
@@ -241,6 +243,7 @@ void *caching_init(struct fuse_conn_info *conn)
  */
 void caching_destroy(void *userdata)
 {
+    logFunctionEntry(DESTROY_FUNC);
 }
 
 
