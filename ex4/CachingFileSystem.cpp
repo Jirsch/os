@@ -12,15 +12,34 @@
 //todo: remove this
 #include <osxfuse/fuse.h>
 #include "CacheState.h"
+#include "Logger.h"
+#include <cerrno>
 #include <cstdio>
 #include <cstdlib>
-#include "Logger.h"
+#include <iostream>
 
 using namespace std;
 
 struct fuse_operations caching_oper;
 
 
+static const int FAILURE = -1;
+static const int SYS_ERROR = 1;
+static const char *const LOGGER_FILENAME = "/.filesystem.log";
+static const char *const SYSTEM_ERROR_PREFIX = "System Error: "
+static const char *const ROOTDIR_ERROR_MSG = "Cannot convert rootDir to absolute path";
+static const char *const ROOTDIR_TOO_LONG_ERROR_MSG = "rootDir is to long to create the logger file";
+static const char *const OPEN_LOGGER_ERROR_MSG = "Cannot open logger file";
+static const char *const USAGE = "usage: CachingFileSystem rootdir mountdir numberOfBlocks "
+        "blockSize";
+
+static const char *const CACHE_ALLOC_ERROR_MSG = "Cannot allocate the desired space for cache";
+
+void handleSystemError(const char *msg)
+{
+    std::cerr << SYSTEM_ERROR_PREFIX << msg << std::endl;
+    exit(SYS_ERROR);
+}
 
 /** Get file attributes.
  *
@@ -28,7 +47,8 @@ struct fuse_operations caching_oper;
  * ignored.  The 'st_ino' field is ignored except if the 'use_ino'
  * mount option is given.
  */
-int caching_getattr(const char *path, struct stat *statbuf){
+int caching_getattr(const char *path, struct stat *statbuf)
+{
     return 0;
 }
 
@@ -44,7 +64,8 @@ int caching_getattr(const char *path, struct stat *statbuf){
  *
  * Introduced in version 2.5
  */
-int caching_fgetattr(const char *path, struct stat *statbuf, struct fuse_file_info *fi){
+int caching_fgetattr(const char *path, struct stat *statbuf, struct fuse_file_info *fi)
+{
     return 0;
 }
 
@@ -78,7 +99,8 @@ int caching_access(const char *path, int mask)
 
  * Changed in version 2.2
  */
-int caching_open(const char *path, struct fuse_file_info *fi){
+int caching_open(const char *path, struct fuse_file_info *fi)
+{
     return 0;
 }
 
@@ -92,7 +114,8 @@ int caching_open(const char *path, struct fuse_file_info *fi){
  * Changed in version 2.2
  */
 int caching_read(const char *path, char *buf, size_t size, off_t offset,
-                 struct fuse_file_info *fi){
+                 struct fuse_file_info *fi)
+{
     return 0;
 }
 
@@ -138,7 +161,8 @@ int caching_flush(const char *path, struct fuse_file_info *fi)
  *
  * Changed in version 2.2
  */
-int caching_release(const char *path, struct fuse_file_info *fi){
+int caching_release(const char *path, struct fuse_file_info *fi)
+{
     return 0;
 }
 
@@ -149,7 +173,8 @@ int caching_release(const char *path, struct fuse_file_info *fi){
  *
  * Introduced in version 2.3
  */
-int caching_opendir(const char *path, struct fuse_file_info *fi){
+int caching_opendir(const char *path, struct fuse_file_info *fi)
+{
     return 0;
 }
 
@@ -167,7 +192,8 @@ int caching_opendir(const char *path, struct fuse_file_info *fi){
  * Introduced in version 2.3
  */
 int caching_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset,
-                    struct fuse_file_info *fi){
+                    struct fuse_file_info *fi)
+{
     return 0;
 }
 
@@ -175,12 +201,14 @@ int caching_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t o
  *
  * Introduced in version 2.3
  */
-int caching_releasedir(const char *path, struct fuse_file_info *fi){
+int caching_releasedir(const char *path, struct fuse_file_info *fi)
+{
     return 0;
 }
 
 /** Rename a file */
-int caching_rename(const char *path, const char *newpath){
+int caching_rename(const char *path, const char *newpath)
+{
     return 0;
 }
 
@@ -194,7 +222,8 @@ int caching_rename(const char *path, const char *newpath){
  * Introduced in version 2.3
  * Changed in version 2.6
  */
-void *caching_init(struct fuse_conn_info *conn){
+void *caching_init(struct fuse_conn_info *conn)
+{
     return NULL;
 }
 
@@ -206,7 +235,8 @@ void *caching_init(struct fuse_conn_info *conn){
  *
  * Introduced in version 2.3
  */
-void caching_destroy(void *userdata){
+void caching_destroy(void *userdata)
+{
 }
 
 
@@ -223,8 +253,9 @@ void caching_destroy(void *userdata){
  * 
  * Introduced in version 2.8
  */
-int caching_ioctl (const char *, int cmd, void *arg,
-                   struct fuse_file_info *, unsigned int flags, void *data){
+int caching_ioctl(const char *, int cmd, void *arg,
+                  struct fuse_file_info *, unsigned int flags, void *data)
+{
     return 0;
 }
 
@@ -274,24 +305,104 @@ void init_caching_oper()
     caching_oper.ftruncate = NULL;
 }
 
+int isDir(char const *path)
+{
+    int isDir = 1;
+    struct stat s;
+    int statRet = stat(path, &s);
+    if (statRet == FAILURE)
+    {
+        {
+            isDir = 0;
+        }
+        else if (!S_ISDIR(s.st_mode))
+        {
+            isDir = 0;
+        }
+    }
+
+    return isDir;
+}
+
+void invalidUsage()
+{
+    cout << USAGE << endl;
+    exit(0);
+}
+
+PrivateData* initPrivateData(char *const *argv, long numOfBlocks, long blockSize)
+{
+    PrivateData *data = new PrivateData;
+    data->_blockSize = blockSize;
+    data->_numOfBlocks = numOfBlocks;
+
+    data->_rootDir = realpath(argv[1], NULL);
+    if (data->_rootDir == NULL)
+    {
+        handleSystemError(ROOTDIR_ERROR_MSG);
+    }
+    // rootDir is to long to create the logger file
+    if (strlen(data->_rootDir) + strlen(LOGGER_FILENAME) >= PATH_MAX)
+    {
+        handleSystemError(ROOTDIR_TOO_LONG_ERROR_MSG);
+    }
+
+    char loggerPath[PATH_MAX];
+    strcpy(loggerPath, data->_rootDir);
+    strncat(loggerPath, LOGGER_FILENAME, strlen(LOGGER_FILENAME));
+
+    data->_log = openLogger(loggerPath);
+    if (data->_log == NULL)
+    {
+        handleSystemError(OPEN_LOGGER_ERROR_MSG);
+    }
+
+    data->_blocks = new(std::nothrow) CacheBlock[numOfBlocks];
+    if (data->_blocks==NULL)
+    {
+        handleSystemError(CACHE_ALLOC_ERROR_MSG);
+    }
+
+    return data;
+}
+
 //basic main. You need to complete it.
-int main(int argc, char* argv[]){
+int main(int argc, char *argv[])
+{
+    int validArgs = 1;
+    long numOfBlocks, blockSize;
+
+    if (argc != 5)
+    {
+        validArgs = 0;
+    }
+    else
+    {
+        validArgs &= isDir(argv[1]) & isDir(argv[2]);
+        validArgs &= (((numOfBlocks = strtol(argv[3], NULL, 10)) > 0) && errno == 0 &&
+                      numOfBlocks <= INT_MAX);
+        validArgs &= (((blockSize = strtol(argv[4], NULL, 10)) > 0) && errno == 0 &&
+                      blockSize <= INT_MAX);
+    }
+
+    if (!validArgs)
+    {
+        invalidUsage();
+    }
 
     init_caching_oper();
 
-    //TODO: make sure arguments are valid (4 arguments, valid sizes)
-    //TODO: create Private data
-    //TODO: Allocate cache
-    //TODO: init log
+    PrivateData *data = initPrivateData(argv, numOfBlocks, blockSize);
 
     argv[1] = argv[2];
-    for (int i = 2; i< (argc - 1); i++){
+    for (int i = 2; i < (argc - 1); i++)
+    {
         argv[i] = NULL;
     }
-    argv[2] = (char*) "-s";
+    argv[2] = (char *) "-s";
     argc = 3;
 
     // TODO: pass in privateData
-    int fuse_stat = fuse_main(argc, argv, &caching_oper, NULL);
+    int fuse_stat = fuse_main(argc, argv, &caching_oper, data);
     return fuse_stat;
 }

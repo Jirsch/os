@@ -5,11 +5,8 @@
 #ifndef EX4_LOGGER_H
 #define EX4_LOGGER_H
 
+#include <stdio.h>
 
-class Logger
-{
-
-};
-
+FILE* openLogger(const char* path);
 
 #endif //EX4_LOGGER_H

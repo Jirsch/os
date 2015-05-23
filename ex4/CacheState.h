@@ -6,8 +6,12 @@
 #define EX4_CACHESTATE_H
 
 
-#include <stddef.h>
+#include <limits.h>
 #include <stdio.h>
+
+#ifndef PATH_MAX
+#define PATH_MAX 4086
+#endif
 
 typedef struct CacheBlock{
     char* _fileName;
