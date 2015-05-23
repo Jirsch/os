@@ -53,6 +53,8 @@ static const char *const RELEASE_FUNC = "release";
 
 static const char *const FLUSH_FUNC = "flush";
 
+static const char *const OPEN_FUNC = "open";
+
 void handleSystemError(const char *msg)
 {
     std::cerr << SYSTEM_ERROR_PREFIX << msg << std::endl;
@@ -128,7 +130,32 @@ int caching_access(const char *path, int mask)
  */
 int caching_open(const char *path, struct fuse_file_info *fi)
 {
-    return 0;
+    if (logFunctionEntry(OPEN_FUNC) < SUCCESS)
+    {
+        return -errno;
+    }
+
+    // file path too long
+    if (strlen(path) > PATH_MAX - strlen(STATE->_rootDir) - 1)
+    {
+        return -EINVAL;
+    }
+
+
+    int fd;
+    char actualPath[PATH_MAX];
+
+    toActualPath(actualPath, path);
+    fd = open(actualPath, fi->flags);
+
+    if (fd < SUCCESS)
+    {
+        return -errno;
+    }
+
+    fi->fh = fd;
+
+    return SUCCESS;
 }
 
 
@@ -200,7 +227,7 @@ int caching_release(const char *path, struct fuse_file_info *fi)
         return -errno;
     }
 
-    if (close(fi->fh) == FAILURE )
+    if (close(fi->fh) == FAILURE)
     {
         return -errno;
     }
@@ -231,13 +258,13 @@ int caching_opendir(const char *path, struct fuse_file_info *fi)
     char actualPath[PATH_MAX];
     toActualPath(actualPath, path);
 
-    int fd = open(actualPath, fi->flags);
-    if (fd < SUCCESS)
+    DIR *dir = opendir(actualPath);
+    if (dir == NULL)
     {
         return -errno;
     }
 
-    fi->fh = fd;
+    fi->fh = (intptr_t) dir;
 
     return SUCCESS;
 }
