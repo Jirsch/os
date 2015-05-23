@@ -35,6 +35,8 @@ static const char *const USAGE = "usage: CachingFileSystem rootdir mountdir numb
 
 static const char *const CACHE_ALLOC_ERROR_MSG = "Cannot allocate the desired space for cache";
 
+static const char *const INIT_FUNC = "init";
+
 void handleSystemError(const char *msg)
 {
     std::cerr << SYSTEM_ERROR_PREFIX << msg << std::endl;
@@ -224,7 +226,9 @@ int caching_rename(const char *path, const char *newpath)
  */
 void *caching_init(struct fuse_conn_info *conn)
 {
-    return NULL;
+    logFunctionEntry(INIT_FUNC);
+
+    return STATE;
 }
 
 
@@ -312,14 +316,13 @@ int isDir(char const *path)
     int statRet = stat(path, &s);
     if (statRet == FAILURE)
     {
-        {
-            isDir = 0;
-        }
-        else if (!S_ISDIR(s.st_mode))
-        {
-            isDir = 0;
-        }
+        isDir = 0;
     }
+    else if (!S_ISDIR(s.st_mode))
+    {
+        isDir = 0;
+    }
+
 
     return isDir;
 }
@@ -330,7 +333,7 @@ void invalidUsage()
     exit(0);
 }
 
-PrivateData* initPrivateData(char *const *argv, long numOfBlocks, long blockSize)
+PrivateData *initPrivateData(char *const *argv, long numOfBlocks, long blockSize)
 {
     PrivateData *data = new PrivateData;
     data->_blockSize = blockSize;
@@ -358,7 +361,7 @@ PrivateData* initPrivateData(char *const *argv, long numOfBlocks, long blockSize
     }
 
     data->_blocks = new(std::nothrow) CacheBlock[numOfBlocks];
-    if (data->_blocks==NULL)
+    if (data->_blocks == NULL)
     {
         handleSystemError(CACHE_ALLOC_ERROR_MSG);
     }
@@ -400,9 +403,10 @@ int main(int argc, char *argv[])
         argv[i] = NULL;
     }
     argv[2] = (char *) "-s";
-    argc = 3;
+    //TODO: remove
+    argv[3] = (char *) "-f";
+    argc = 4;
 
-    // TODO: pass in privateData
     int fuse_stat = fuse_main(argc, argv, &caching_oper, data);
     return fuse_stat;
 }

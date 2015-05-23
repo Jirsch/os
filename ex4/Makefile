@@ -1,0 +1,1 @@
+g++ -Wall CachingFileSystem.cpp `pkg-config fuse --cflags --libs` -o caching
