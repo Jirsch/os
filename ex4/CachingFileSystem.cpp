@@ -17,6 +17,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <iostream>
+#include <dirent.h>
 
 using namespace std;
 
@@ -38,6 +39,10 @@ static const char *const CACHE_ALLOC_ERROR_MSG = "Cannot allocate the desired sp
 static const char *const INIT_FUNC = "init";
 
 static const char *const DESTROY_FUNC = "destroy";
+
+static const char *const RELEASEDIR_FUNC = "releasedir";
+
+static const int SUCCESS = 0;
 
 void handleSystemError(const char *msg)
 {
@@ -207,7 +212,17 @@ int caching_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t o
  */
 int caching_releasedir(const char *path, struct fuse_file_info *fi)
 {
-    return 0;
+    if (logFunctionEntry(RELEASEDIR_FUNC) < 0)
+    {
+        return -errno;
+    }
+    
+    if (closedir( (DIR *) (uintptr_t) fi->fh) == FAILURE)
+    {
+        return -errno;
+    }
+    
+    return SUCCESS;
 }
 
 /** Rename a file */

@@ -8,6 +8,6 @@
 #include <stdio.h>
 
 FILE* openLogger(const char* path);
-void logFunctionEntry(const char* funcName);
+int logFunctionEntry(const char* funcName);
 
 #endif //EX4_LOGGER_H

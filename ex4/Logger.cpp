@@ -21,7 +21,7 @@ FILE *openLogger(const char *path)
     return file;
 }
 
-void logFunctionEntry(const char *funcName)
+int logFunctionEntry(const char *funcName)
 {
-    fprintf( STATE->_log, "%lu %s\n",(u_long)time(NULL), funcName);
+    return fprintf( STATE->_log, "%lu %s\n",(u_long)time(NULL), funcName);
 }
