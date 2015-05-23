@@ -44,6 +44,8 @@ static const char *const RELEASEDIR_FUNC = "releasedir";
 
 static const int SUCCESS = 0;
 
+static const char *const READDIR_FUNC = "readdir";
+
 void handleSystemError(const char *msg)
 {
     std::cerr << SYSTEM_ERROR_PREFIX << msg << std::endl;
@@ -203,7 +205,32 @@ int caching_opendir(const char *path, struct fuse_file_info *fi)
 int caching_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset,
                     struct fuse_file_info *fi)
 {
-    return 0;
+    if (logFunctionEntry(READDIR_FUNC) < 0)
+    {
+        return -errno;
+    }
+
+    DIR *dir = (DIR *) (uintptr_t) fi->fh;
+    struct dirent *dEntry;
+
+    // reset errno before calling readdir
+    errno = 0;
+    while ((dEntry = readdir(dir)) != NULL)
+    {
+        if (filler(buf, dEntry->d_name, NULL, 0) != 0)
+        {
+            return -EINVAL;
+        }
+
+        errno = 0;
+    }
+
+    if (errno != 0)
+    {
+        return -errno;
+    }
+
+    return SUCCESS;
 }
 
 /** Release directory
@@ -216,12 +243,12 @@ int caching_releasedir(const char *path, struct fuse_file_info *fi)
     {
         return -errno;
     }
-    
-    if (closedir( (DIR *) (uintptr_t) fi->fh) == FAILURE)
+
+    if (closedir((DIR *) (uintptr_t) fi->fh) == FAILURE)
     {
         return -errno;
     }
-    
+
     return SUCCESS;
 }
 
