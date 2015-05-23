@@ -55,6 +55,8 @@ static const char *const FLUSH_FUNC = "flush";
 
 static const char *const OPEN_FUNC = "open";
 
+static const char *const ACCESS_FUNC = "access";
+
 void handleSystemError(const char *msg)
 {
     std::cerr << SYSTEM_ERROR_PREFIX << msg << std::endl;
@@ -111,7 +113,27 @@ int caching_fgetattr(const char *path, struct stat *statbuf, struct fuse_file_in
  */
 int caching_access(const char *path, int mask)
 {
-    return 0;
+    if (logFunctionEntry(ACCESS_FUNC) < SUCCESS)
+    {
+        return -errno;
+    }
+
+    // file path too long
+    if (strlen(path) > PATH_MAX - strlen(STATE->_rootDir) - 1)
+    {
+        return -EINVAL;
+    }
+
+    char actualPath[PATH_MAX];
+
+    toActualPath(actualPath, path);
+
+    if (access(actualPath, mask) == FAILURE)
+    {
+        return -errno;
+    }
+
+    return SUCCESS;
 }
 
 
