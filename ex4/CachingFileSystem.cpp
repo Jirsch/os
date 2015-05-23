@@ -11,6 +11,7 @@
 //#include <fuse.h>
 //todo: remove this
 #include <osxfuse/fuse.h>
+#include "CacheState.h"
 #include <cstdio>
 #include <cstdlib>
 #include "Logger.h"
@@ -19,21 +20,7 @@ using namespace std;
 
 struct fuse_operations caching_oper;
 
-typedef struct CacheBlock{
-    char* _fileName;
-    int _accessCounter;
-    size_t _start;
-    size_t _end;
-    char* _data;
-} CacheBlock;
 
-typedef struct PrivateData{
-    size_t _blockSize;
-    int _numOfBlocks;
-    CacheBlock* _blocks;
-    char* _rootDir;
-    Logger* _logger;
-} PrivateData;
 
 /** Get file attributes.
  *
