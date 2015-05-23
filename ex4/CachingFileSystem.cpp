@@ -51,6 +51,8 @@ static const char *const OPENDIR_FUNC = "opendir";
 
 static const char *const RELEASE_FUNC = "release";
 
+static const char *const FLUSH_FUNC = "flush";
+
 void handleSystemError(const char *msg)
 {
     std::cerr << SYSTEM_ERROR_PREFIX << msg << std::endl;
@@ -169,7 +171,12 @@ int caching_read(const char *path, char *buf, size_t size, off_t offset,
  */
 int caching_flush(const char *path, struct fuse_file_info *fi)
 {
-    return 0;
+    if (logFunctionEntry(FLUSH_FUNC) < SUCCESS)
+    {
+        return -errno;
+    }
+
+    return SUCCESS;
 }
 
 /** Release an open file
