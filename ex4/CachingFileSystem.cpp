@@ -46,10 +46,21 @@ static const int SUCCESS = 0;
 
 static const char *const READDIR_FUNC = "readdir";
 
+static const char *const OPENDIR_FUNC = "opendir";
+
 void handleSystemError(const char *msg)
 {
     std::cerr << SYSTEM_ERROR_PREFIX << msg << std::endl;
     exit(SYS_ERROR);
+}
+
+/** Translate relative to actual path
+ * Only copies PATH_MAX - strlen(STATE->_rootDir)-1 chars
+ */
+static void toActualPath(char fpath[PATH_MAX], const char *path)
+{
+    strcpy(fpath, STATE->_rootDir);
+    strncat(fpath, path, PATH_MAX - strlen(STATE->_rootDir) - 1);
 }
 
 /** Get file attributes.
@@ -186,7 +197,29 @@ int caching_release(const char *path, struct fuse_file_info *fi)
  */
 int caching_opendir(const char *path, struct fuse_file_info *fi)
 {
-    return 0;
+    if (logFunctionEntry(OPENDIR_FUNC) < SUCCESS)
+    {
+        return -errno;
+    }
+
+    // file path too long
+    if (strlen(path) > PATH_MAX - strlen(STATE->_rootDir) - 1)
+    {
+        return -EINVAL;
+    }
+
+    char actualPath[PATH_MAX];
+    toActualPath(actualPath, path);
+
+    int fd = open(actualPath, fi->flags);
+    if (fd < SUCCESS)
+    {
+        return -errno;
+    }
+
+    fi->fh = fd;
+
+    return SUCCESS;
 }
 
 /** Read directory
@@ -205,7 +238,7 @@ int caching_opendir(const char *path, struct fuse_file_info *fi)
 int caching_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset,
                     struct fuse_file_info *fi)
 {
-    if (logFunctionEntry(READDIR_FUNC) < 0)
+    if (logFunctionEntry(READDIR_FUNC) < SUCCESS)
     {
         return -errno;
     }
@@ -214,18 +247,18 @@ int caching_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t o
     struct dirent *dEntry;
 
     // reset errno before calling readdir
-    errno = 0;
+    errno = SUCCESS;
     while ((dEntry = readdir(dir)) != NULL)
     {
-        if (filler(buf, dEntry->d_name, NULL, 0) != 0)
+        if (filler(buf, dEntry->d_name, NULL, 0) != SUCCESS)
         {
             return -EINVAL;
         }
 
-        errno = 0;
+        errno = SUCCESS;
     }
 
-    if (errno != 0)
+    if (errno != SUCCESS)
     {
         return -errno;
     }
@@ -239,7 +272,7 @@ int caching_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t o
  */
 int caching_releasedir(const char *path, struct fuse_file_info *fi)
 {
-    if (logFunctionEntry(RELEASEDIR_FUNC) < 0)
+    if (logFunctionEntry(RELEASEDIR_FUNC) < SUCCESS)
     {
         return -errno;
     }
