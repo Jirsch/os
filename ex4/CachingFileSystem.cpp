@@ -128,12 +128,6 @@ int getLFU()
  */
 int caching_getattr(const char *path, struct stat *statbuf)
 {
-    // todo: antonio to decide about conflict
-    if (logFunctionEntry(GETATTR_FUNC) < SUCCESS)
-    {
-        return -errno;
-    }
-
     int ret;
     if ((ret = functionEntry(path, GETATTR_FUNC)) != SUCCESS)
     {
@@ -171,16 +165,10 @@ int caching_getattr(const char *path, struct stat *statbuf)
  */
 int caching_fgetattr(const char *path, struct stat *statbuf, struct fuse_file_info *fi)
 {
-    // todo: antonio to decide about conflict
     int ret;
     if ((ret = functionEntry(path, FGETATTR_FUNC)) != SUCCESS)
     {
         return ret;
-    }
-    
-    if (logFunctionEntry(FGETATTR_FUNC) < SUCCESS)
-    {
-        return -errno;
     }
 
     if (strncmp(path, "/", 2) == 0)
@@ -209,16 +197,10 @@ int caching_fgetattr(const char *path, struct stat *statbuf, struct fuse_file_in
  */
 int caching_access(const char *path, int mask)
 {
-    // todo: antonio 
     int ret;
     if ((ret = functionEntry(path, ACCESS_FUNC)) != SUCCESS)
     {
         return ret;
-    }
-    
-    if (logFunctionEntry(ACCESS_FUNC) < SUCCESS)
-    {
-        return -errno;
     }
 
     // file path too long
@@ -372,22 +354,25 @@ off_t getStartOfBlock(size_t curByte)
 
 /*
  * go over the blocks in the cache and read data from the relevant blocks
+ * return the number f blocks read from cache
  */
-void readDataFromCache(const char *path, char *buf, size_t size, off_t offset,
+size_t readDataFromCache(const char *path, char *buf, size_t size, off_t offset,
                        bool *hasBlockBeenRead)
 {
     size_t startOfReading = offset;
     size_t endOfReading = offset + size;
 
+    size_t bytesRead = 0;
+
     for (int i = 0; i < STATE->_numOfTakenBlocks; i++) {
         CacheBlock *cur = STATE->_blocks[i];
 
         // checking if the current block is part of the requested file
-        if (strcmp(path, cur->_fileName) == 0)
+        if (strncmp(path, cur->_fileName) == 0)
         {
             // checking if we need to read the current block
             if (endOfReading >= cur->_start && startOfReading <= cur->_end) {
-                readFromBlock(cur, buf, startOfReading, endOfReading,
+                bytesRead += readFromBlock(cur, buf, startOfReading, endOfReading,
                               getOffset(cur->_start, startOfReading));
 
                 int blockNum =
@@ -396,15 +381,23 @@ void readDataFromCache(const char *path, char *buf, size_t size, off_t offset,
             }
         }
     }
+
+    return bytesRead;
 }
 
 /*
  * go over the buffer and read from the disc the data that wasn't in the cache
+ * return the number of bytes read
  */
-void readDataFromDisc(const char *path, char *buf, int numOfBlocks, off_t offset,
+size_t readDataFromDisc(const char *path, char *buf, int numOfBlocks, off_t offset,
                       bool *hasBlockBeenRead, struct fuse_file_info *fi)
 {
+    size_t bytesReadFromFile;
+    size_t bytesReadFromDisc = 0;
+
     for (int curBlock = 0; curBlock < numOfBlocks; curBlock++) {
+
+        bytesReadFromFile = 0;
 
         // checking if the current byte has been read already
         if (hasBlockBeenRead[curBlock] == false) {
@@ -413,30 +406,31 @@ void readDataFromDisc(const char *path, char *buf, int numOfBlocks, off_t offset
 
             // initializing the data and reading it from the block
             char *retrievedData[STATE->_blockSize];
-            // todo: do we need to delete retrievedData? maybe remove
-            pread(fi->fh, retrievedData, STATE->_blockSize, startOfBlock);
+            if (bytesReadFromFile = pread(fi->fh, retrievedData, STATE->_blockSize, startOfBlock) < SUCCESS)
+            {
+                return  -errno;
+            }
 
             // initializing a new block and reading from it to the buffer
-            // todo: make actual end size
             CacheBlock *newBlock = new CacheBlock(path, startOfBlock,
-                                                  startOfBlock + STATE->_blockSize,
+                                                  startOfBlock + bytesReadFromFile,
                                                   retrievedData); // todo: STATE->_blockSize -1?
-            size_t bytesToReadFromBlock = readFromBlock(newBlock, buf, curBlock + offset,
+            bytesReadFromDisc += readFromBlock(newBlock, buf, curBlock + offset,
                                                         offset + numOfBlocks, curBlock);
 
+            // updating that the block was read
             hasBlockBeenRead[curBlock] = true;
 
-            //todo: change _blocks to array of pointers
             // finding the least frequently used block in the cache and deleting it
             int indexToInsert = getIndexToInsert();
             delete STATE->_blocks[indexToInsert];
 
-            // adding the new block insted of the LFU one
+            // adding the new block instead of the LFU one
             STATE->_blocks[indexToInsert] = newBlock;
-
-            curByte += bytesToReadFromBlock-1;
         }
     }
+
+    return bytesReadFromDisc;
 }
 
 /** Read data from an open file
@@ -463,14 +457,21 @@ int caching_read(const char *path, char *buf, size_t size, off_t offset,
     int hasBlockBeenRead[numOfBlocks];
     initHasBlockBeenRead(numOfBlocks, hasBlockBeenRead);
 
-    // todo: handle errors
     // looking in the cache for blocks that hold requested data and copying it to the buffer
-    readDataFromCache(path, buf, size, offset, hasBlockBeenRead);
-    // todo: maybe check if needed
-    // reading the rest of the requested data from the disk
-    readDataFromDisc(path, buf, numOfBlocks, offset, hasBlockBeenRead, fi);
+    size_t bytesRead = readDataFromCache(path, buf, size, offset, hasBlockBeenRead);
 
-    // todo: return relevant stuff
+    // checking if we need to read from disc
+    if (bytesRead < size)
+    {
+        // reading the rest of the requested data from the disk
+        if (ret = readDataFromDisc(path, buf, numOfBlocks, offset, hasBlockBeenRead, fi) < SUCCESS)
+        {
+            return -errno;
+        }
+        bytesRead += ret;
+    }
+
+    return bytesRead;
 }
 
 /** Possibly flush cached data
