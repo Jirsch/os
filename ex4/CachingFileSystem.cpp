@@ -70,6 +70,8 @@ static const char *const RENAME_FUNC = "rename";
 
 static const char *const IOCTL_FUNC = "ioctl";
 
+static const char *const READ_FUNC = "read";
+
 void handleSystemError(const char *msg)
 {
     std::cerr << SYSTEM_ERROR_PREFIX << msg << std::endl;
@@ -412,11 +414,15 @@ void readDataFromDisc(const char *path, char *buf, size_t size, off_t offset, bo
  */
 int caching_read(const char *path, char *buf, size_t size, off_t offset,
                  struct fuse_file_info *fi){
-    // todo: log "UNIX_TIME read"
+    if (logFunctionEntry(READ_FUNC) < SUCCESS)
+    {
+        return -errno;
+    }
 
     // will hold a bool var for each byte in the buf - true if it has been read, false o.w
     bool* hasByteBeenRead = initHasByteBeenRead(size);
 
+    // todo: handle errors
     // todo: check in forum if this is legal
     // looking in the cache for blocks that hold requested data and copying it to the buffer
     readDataFromCache(path, buf, size, offset, hasByteBeenRead);
