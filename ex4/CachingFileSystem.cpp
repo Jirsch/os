@@ -222,6 +222,7 @@ int caching_access(const char *path, int mask)
  */
 int caching_open(const char *path, struct fuse_file_info *fi)
 {
+    //todo: add error if flags indicate write
     if (logFunctionEntry(OPEN_FUNC) < SUCCESS)
     {
         return -errno;
@@ -354,7 +355,7 @@ void readDataFromCache(const char *path, char *buf, size_t size, off_t offset,
     size_t startOfReading = offset;
     size_t endOfReading = offset + size;
 
-    for (int i = 0; i < STATE->_numOfTakenBlocks; i++) // todo: is this how we increment i?
+    for (int i = 0; i < STATE->_numOfTakenBlocks; i++)
     {
         CacheBlock *cur = STATE->_blocks[i];
 
@@ -436,7 +437,6 @@ int caching_read(const char *path, char *buf, size_t size, off_t offset,
     bool *hasByteBeenRead = initHasByteBeenRead(size);
 
     // todo: handle errors
-    // todo: check in forum if this is legal
     // looking in the cache for blocks that hold requested data and copying it to the buffer
     readDataFromCache(path, buf, size, offset, hasByteBeenRead);
     // todo: maybe check if needed
@@ -638,6 +638,7 @@ int caching_rename(const char *path, const char *newpath)
         {
             delete[] STATE->_blocks[i]->_fileName;
 
+            // todo: check errors memcpy
             STATE->_blocks[i]->_fileName = new char[strlen(newpath) + 1];
             memcpy(STATE->_blocks[i]->_fileName, newpath, strlen(newpath) + 1);
         }
@@ -707,7 +708,7 @@ int caching_ioctl(const char *, int cmd, void *arg,
         }
     }
 
-    return 0;
+    return SUCCESS;
 }
 
 
