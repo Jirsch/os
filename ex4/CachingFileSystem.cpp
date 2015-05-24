@@ -249,11 +249,15 @@ int caching_open(const char *path, struct fuse_file_info *fi)
         return -EINVAL;
     }
 
+    if ((fi->flags & 3) != O_RDONLY)
+    {
+        return -EACCES;
+    }
+
 
     int fd;
     char actualPath[PATH_MAX];
 
-    // todo: check permissions
     toActualPath(actualPath, path);
     fd = open(actualPath, fi->flags);
 
@@ -661,7 +665,6 @@ int caching_rename(const char *path, const char *newpath)
         {
             delete[] STATE->_blocks[i]->_fileName;
 
-            // todo: check errors memcpy
             STATE->_blocks[i]->_fileName = new char[strlen(newpath) + 1];
             memcpy(STATE->_blocks[i]->_fileName, newpath, strlen(newpath) + 1);
         }
