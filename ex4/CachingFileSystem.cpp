@@ -92,15 +92,15 @@ static void toActualPath(char fpath[PATH_MAX], const char *path)
 int getLFU()
 {
     // make the first block the default minimum
-    int minAccesses = STATE->_blocks[0]._accessCounter;
+    int minAccesses = STATE->_blocks[0]->_accessCounter;
     int LFUIndex = 0;
 
     // going through the rest of the blocks and finding the minimum accessed one
     for (int i = 0; i < STATE->_numOfTakenBlocks; i++)
     {
-        if (STATE->_blocks[i]._accessCounter < minAccesses)
+        if (STATE->_blocks[i]->_accessCounter < minAccesses)
         {
-            minAccesses = STATE->_blocks[i]._accessCounter;
+            minAccesses = STATE->_blocks[i]->_accessCounter;
             LFUIndex = i;
         }
     }
@@ -289,6 +289,7 @@ int getIndexToInsert()
     // checking if the cache is not full
     if (STATE->_numOfTakenBlocks < STATE->_numOfBlocks)
     {
+        STATE->_blocks[STATE->_numOfTakenBlocks] = NULL;
         return (STATE->_numOfTakenBlocks)++;
     }
 
@@ -300,7 +301,7 @@ int getIndexToInsert()
  * initialize a bool array that will hold a bool var for each byte in the buf that will be true
  * if it has been read, false o.w
  */
-bool* initHasByteBeenRead(size_t size)
+bool *initHasByteBeenRead(size_t size)
 {
     // todo: change to array of blocks
     bool hasByteBeenRead[size]; // todo: fix initialization
@@ -317,7 +318,8 @@ bool* initHasByteBeenRead(size_t size)
 /*
  * reads data from a block. returns the number of bytes that were read
  */
-size_t readFromBlock(CacheBlock* block, char* buf, size_t start, size_t end, size_t bufOffset, bool* hasByteBeenRead)
+size_t readFromBlock(CacheBlock *block, char *buf, size_t start, size_t end, size_t bufOffset,
+                     bool *hasByteBeenRead)
 {
     size_t bytesToReadFromBlock = getNumOfBytes(block->_start, block->_end, start, end);
 
@@ -340,20 +342,21 @@ size_t readFromBlock(CacheBlock* block, char* buf, size_t start, size_t end, siz
  */
 off_t getStartOfBlock(size_t curByte)
 {
-    return floor((curByte) / STATE->_blockSize) * STATE->_blockSize; // todo: +1?
+    return floor((curByte) / STATE->_blockSize) * STATE->_blockSize;
 }
 
 /*
  * go over the blocks in the cache and read data from the relevant blocks
  */
-void readDataFromCache(const char *path, char *buf, size_t size, off_t offset, bool* hasByteBeenRead)
+void readDataFromCache(const char *path, char *buf, size_t size, off_t offset,
+                       bool *hasByteBeenRead)
 {
     size_t startOfReading = offset;
     size_t endOfReading = offset + size;
 
     for (int i = 0; i < STATE->_numOfTakenBlocks; i++) // todo: is this how we increment i?
     {
-        CacheBlock* cur = STATE->_blocks[i];
+        CacheBlock *cur = STATE->_blocks[i];
 
         // checking if the current block is part of the requested file
         if (strcmp(path, cur->_fileName) == 0)
@@ -361,7 +364,8 @@ void readDataFromCache(const char *path, char *buf, size_t size, off_t offset, b
             // checking if we need to read the current block
             if (endOfReading >= cur->_start && startOfReading <= cur->_end)
             {
-                readFromBlock(cur, buf, startOfReading, endOfReading, getOffset(cur->_start, startOfReading), hasByteBeenRead);
+                readFromBlock(cur, buf, startOfReading, endOfReading,
+                              getOffset(cur->_start, startOfReading), hasByteBeenRead);
             }
         }
     }
@@ -370,35 +374,44 @@ void readDataFromCache(const char *path, char *buf, size_t size, off_t offset, b
 /*
  * go over the buffer and read from the disc the data that wasn't in the cache
  */
-void readDataFromDisc(const char *path, char *buf, size_t size, off_t offset, bool* hasByteBeenRead, struct fuse_file_info *fi)
+void readDataFromDisc(const char *path, char *buf, size_t size, off_t offset, bool *hasByteBeenRead,
+                      struct fuse_file_info *fi)
 {
     for (size_t curByte = 0; curByte < size; curByte++)
     {
         // checking if the current byte has been read already
         if (hasByteBeenRead[curByte] == false)
         {
+            // finding the least frequently used block in the cache and deleting it
+            int indexToInsert = getIndexToInsert();
+            if (STATE->_blocks[indexToInsert]!=NULL)
+            {
+                delete STATE->_blocks[indexToInsert];
+            }
+
             // finding the byte that starts the block of the current byte
             int startOfBlock = getStartOfBlock(curByte + offset);
 
             // initializing the data and reading it from the block
-            char* retrievedData[STATE->_blockSize];
+            char *retrievedData[STATE->_blockSize];
             // todo: do we need to delete retrievedData? maybe remove
             pread(fi->fh, retrievedData, STATE->_blockSize, startOfBlock);
 
             // initializing a new block and reading from it to the buffer
             // todo: make actual end size
-            CacheBlock* newBlock = new CacheBlock(path, startOfBlock, startOfBlock + STATE->_blockSize, retrievedData); // todo: STATE->_blockSize -1?
-            size_t bytesToReadFromBlock = readFromBlock(newBlock, buf, curByte + offset, offset + size, curByte, hasByteBeenRead);
+            CacheBlock *newBlock = new CacheBlock(path, startOfBlock,
+                                                  startOfBlock + STATE->_blockSize,
+                                                  retrievedData); // todo: STATE->_blockSize -1?
 
-            //todo: change _blocks to array of pointers
-            // finding the least frequently used block in the cache and deleting it
-            int indexToInsert = getIndexToInsert();
-            delete STATE->_blocks[indexToInsert];
+            size_t bytesToReadFromBlock = readFromBlock(newBlock, buf, curByte + offset,
+                                                        offset + size, curByte, hasByteBeenRead);
+
+
 
             // adding the new block insted of the LFU one
             STATE->_blocks[indexToInsert] = newBlock;
 
-            curByte += bytesToReadFromBlock-1;
+            curByte += bytesToReadFromBlock - 1;
         }
     }
 }
@@ -412,14 +425,15 @@ void readDataFromDisc(const char *path, char *buf, size_t size, off_t offset, bo
  * Changed in version 2.2
  */
 int caching_read(const char *path, char *buf, size_t size, off_t offset,
-                 struct fuse_file_info *fi){
+                 struct fuse_file_info *fi)
+{
     if (logFunctionEntry(READ_FUNC) < SUCCESS)
     {
         return -errno;
     }
 
     // will hold a bool var for each byte in the buf - true if it has been read, false o.w
-    bool* hasByteBeenRead = initHasByteBeenRead(size);
+    bool *hasByteBeenRead = initHasByteBeenRead(size);
 
     // todo: handle errors
     // todo: check in forum if this is legal
@@ -428,7 +442,7 @@ int caching_read(const char *path, char *buf, size_t size, off_t offset,
     // todo: maybe check if needed
     // reading the rest of the requested data from the disk
     readDataFromDisc(path, buf, size, offset, hasByteBeenRead, fi);
-    
+
     // todo: return relevant stuff
 }
 
@@ -601,7 +615,7 @@ int caching_rename(const char *path, const char *newpath)
 
     // file path too long
     if (strlen(path) > PATH_MAX - strlen(STATE->_rootDir) - 1 ||
-            strlen(newpath) > PATH_MAX - strlen(STATE->_rootDir) - 1 )
+        strlen(newpath) > PATH_MAX - strlen(STATE->_rootDir) - 1)
     {
         return -EINVAL;
     }
@@ -618,14 +632,14 @@ int caching_rename(const char *path, const char *newpath)
     }
 
     // rename paths in cache
-    for (int i=0; i< STATE->_numOfTakenBlocks; ++i )
+    for (int i = 0; i < STATE->_numOfTakenBlocks; ++i)
     {
-        if (strncmp( path, STATE->_blocks[i]._fileName, PATH_MAX ) == 0)
+        if (strncmp(path, STATE->_blocks[i]->_fileName, PATH_MAX) == 0)
         {
-            delete[] STATE->_blocks[i]._fileName;
+            delete[] STATE->_blocks[i]->_fileName;
 
-            STATE->_blocks[i]._fileName = new char[strlen(newpath)+1];
-            memcpy(STATE->_blocks[i]._fileName, newpath, strlen(newpath)+1);
+            STATE->_blocks[i]->_fileName = new char[strlen(newpath) + 1];
+            memcpy(STATE->_blocks[i]->_fileName, newpath, strlen(newpath) + 1);
         }
     }
 
@@ -685,14 +699,14 @@ int caching_ioctl(const char *, int cmd, void *arg,
         return -errno;
     }
 
-    for (int i=0; i< STATE->_numOfTakenBlocks; ++i )
+    for (int i = 0; i < STATE->_numOfTakenBlocks; ++i)
     {
-        if (logCacheBlock(STATE->_blocks + i ) < SUCCESS)
+        if (logCacheBlock(STATE->_blocks[i]) < SUCCESS)
         {
             return -errno;
         }
     }
-    
+
     return 0;
 }
 
@@ -793,7 +807,7 @@ PrivateData *initPrivateData(char *const *argv, long numOfBlocks, long blockSize
         handleSystemError(OPEN_LOGGER_ERROR_MSG);
     }
 
-    data->_blocks = new(std::nothrow) CacheBlock[numOfBlocks];
+    data->_blocks = new(std::nothrow) CacheBlock *[numOfBlocks];
     if (data->_blocks == NULL)
     {
         handleSystemError(CACHE_ALLOC_ERROR_MSG);
