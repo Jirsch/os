@@ -64,6 +64,10 @@ static const char *const FGETATTR_FUNC = "fgetattr";
 
 // TODO: handle logfile in functions
 
+static const char *const RENAME_FUNC = "rename";
+
+static const char *const IOCTL_FUNC = "ioctl";
+
 void handleSystemError(const char *msg)
 {
     std::cerr << SYSTEM_ERROR_PREFIX << msg << std::endl;
@@ -398,7 +402,7 @@ int caching_releasedir(const char *path, struct fuse_file_info *fi)
 /** Rename a file */
 int caching_rename(const char *path, const char *newpath)
 {
-    if (logFunctionEntry(ACCESS_FUNC) < SUCCESS)
+    if (logFunctionEntry(RENAME_FUNC) < SUCCESS)
     {
         return -errno;
     }
@@ -464,6 +468,7 @@ void *caching_init(struct fuse_conn_info *conn)
 void caching_destroy(void *userdata)
 {
     logFunctionEntry(DESTROY_FUNC);
+    closeLogger(STATE->_log);
 }
 
 
@@ -483,6 +488,19 @@ void caching_destroy(void *userdata)
 int caching_ioctl(const char *, int cmd, void *arg,
                   struct fuse_file_info *, unsigned int flags, void *data)
 {
+    if (logFunctionEntry(IOCTL_FUNC) < SUCCESS)
+    {
+        return -errno;
+    }
+
+    for (int i=0; i< STATE->_numOfTakenBlocks; ++i )
+    {
+        if (logCacheBlock(STATE->_blocks + i ) < SUCCESS)
+        {
+            return -errno;
+        }
+    }
+    
     return 0;
 }
 

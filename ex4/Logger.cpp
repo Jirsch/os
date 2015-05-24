@@ -10,10 +10,10 @@
 
 FILE *openLogger(const char *path)
 {
-    FILE* file;
+    FILE *file;
 
-    file = fopen(path , "a");
-    if (file!=NULL)
+    file = fopen(path, "a");
+    if (file != NULL)
     {
         setvbuf(file, NULL, _IOLBF, 0);
     }
@@ -23,5 +23,17 @@ FILE *openLogger(const char *path)
 
 int logFunctionEntry(const char *funcName)
 {
-    return fprintf( STATE->_log, "%lu %s\n",(u_long)time(NULL), funcName);
+    return fprintf(STATE->_log, "%lu %s\n", (u_long) time(NULL), funcName);
+}
+
+int logCacheBlock(const CacheBlock *block)
+{
+    return fprintf(STATE->_log, "%s %d %d", block->_fileName,
+                   (int) (block->_start / STATE->_blockSize) + 1, block->_accessCounter);
+}
+
+
+void closeLogger(FILE *logger)
+{
+    fclose(logger);
 }
