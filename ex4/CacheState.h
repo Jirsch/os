@@ -47,7 +47,7 @@ typedef struct PrivateData
     size_t _blockSize;
     int _numOfBlocks;
     int _numOfTakenBlocks;
-    CacheBlock *_blocks;
+    CacheBlock** _blocks;
     char *_rootDir;
     FILE *_log;
 } PrivateData;

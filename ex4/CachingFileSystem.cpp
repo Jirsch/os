@@ -62,9 +62,6 @@ static const char *const GETATTR_FUNC = "getattr";
 
 static const char *const FGETATTR_FUNC = "fgetattr";
 
-
-// TODO: handle logfile in functions
-
 static const char *const RENAME_FUNC = "rename";
 
 static const char *const IOCTL_FUNC = "ioctl";
@@ -86,6 +83,21 @@ static void toActualPath(char fpath[PATH_MAX], const char *path)
     strncat(fpath, path, PATH_MAX - strlen(STATE->_rootDir) - 1);
 }
 
+int functionEntry(const char *path, const char *funcName)
+{
+    if (logFunctionEntry(funcName) < SUCCESS)
+    {
+        return -errno;
+    }
+
+    if (strncmp(path + 1, LOGGER_FILENAME, strlen(LOGGER_FILENAME) + 1) == 0)
+    {
+        return -ENOENT;
+    }
+
+    return SUCCESS;
+}
+
 /*
  * return the index of the least frequently used block
  */
@@ -96,9 +108,11 @@ int getLFU()
     int LFUIndex = 0;
 
     // going through the rest of the blocks and finding the minimum accessed one
-    for (int i = 0; i < STATE->_numOfTakenBlocks; i++) {
-        if (STATE->_blocks[i]._accessCounter < minAccesses) {
-            minAccesses = STATE->_blocks[i]._accessCounter;
+    for (int i = 0; i < STATE->_numOfTakenBlocks; i++)
+    {
+        if (STATE->_blocks[i]->_accessCounter < minAccesses)
+        {
+            minAccesses = STATE->_blocks[i]->_accessCounter;
             LFUIndex = i;
         }
     }
@@ -114,19 +128,29 @@ int getLFU()
  */
 int caching_getattr(const char *path, struct stat *statbuf)
 {
-    if (logFunctionEntry(GETATTR_FUNC) < SUCCESS) {
+    // todo: antonio to decide about conflict
+    if (logFunctionEntry(GETATTR_FUNC) < SUCCESS)
+    {
         return -errno;
     }
 
+    int ret;
+    if ((ret = functionEntry(path, GETATTR_FUNC)) != SUCCESS)
+    {
+        return ret;
+    }
+
     // file path too long
-    if (strlen(path) > PATH_MAX - strlen(STATE->_rootDir) - 1) {
+    if (strlen(path) > PATH_MAX - strlen(STATE->_rootDir) - 1)
+    {
         return -EINVAL;
     }
 
     char actualPath[PATH_MAX];
     toActualPath(actualPath, path);
 
-    if (lstat(actualPath, statbuf) == FAILURE) {
+    if (lstat(actualPath, statbuf) == FAILURE)
+    {
         return -errno;
     }
 
@@ -147,15 +171,25 @@ int caching_getattr(const char *path, struct stat *statbuf)
  */
 int caching_fgetattr(const char *path, struct stat *statbuf, struct fuse_file_info *fi)
 {
-    if (logFunctionEntry(FGETATTR_FUNC) < SUCCESS) {
+    // todo: antonio to decide about conflict
+    int ret;
+    if ((ret = functionEntry(path, FGETATTR_FUNC)) != SUCCESS)
+    {
+        return ret;
+    }
+    
+    if (logFunctionEntry(FGETATTR_FUNC) < SUCCESS)
+    {
         return -errno;
     }
 
-    if (strncmp(path, "/", 2) == 0) {
+    if (strncmp(path, "/", 2) == 0)
+    {
         return caching_getattr(path, statbuf);
     }
 
-    if (fstat(fi->fh, statbuf) == FAILURE) {
+    if (fstat(fi->fh, statbuf) == FAILURE)
+    {
         return -errno;
     }
 
@@ -175,12 +209,21 @@ int caching_fgetattr(const char *path, struct stat *statbuf, struct fuse_file_in
  */
 int caching_access(const char *path, int mask)
 {
-    if (logFunctionEntry(ACCESS_FUNC) < SUCCESS) {
+    // todo: antonio 
+    int ret;
+    if ((ret = functionEntry(path, ACCESS_FUNC)) != SUCCESS)
+    {
+        return ret;
+    }
+    
+    if (logFunctionEntry(ACCESS_FUNC) < SUCCESS)
+    {
         return -errno;
     }
 
     // file path too long
-    if (strlen(path) > PATH_MAX - strlen(STATE->_rootDir) - 1) {
+    if (strlen(path) > PATH_MAX - strlen(STATE->_rootDir) - 1)
+    {
         return -EINVAL;
     }
 
@@ -188,7 +231,8 @@ int caching_access(const char *path, int mask)
 
     toActualPath(actualPath, path);
 
-    if (access(actualPath, mask) == FAILURE) {
+    if (access(actualPath, mask) == FAILURE)
+    {
         return -errno;
     }
 
@@ -211,23 +255,31 @@ int caching_access(const char *path, int mask)
  */
 int caching_open(const char *path, struct fuse_file_info *fi)
 {
-    if (logFunctionEntry(OPEN_FUNC) < SUCCESS) {
-        return -errno;
+    int ret;
+    if ((ret = functionEntry(path, OPEN_FUNC)) != SUCCESS)
+    {
+        return ret;
     }
 
     // file path too long
-    if (strlen(path) > PATH_MAX - strlen(STATE->_rootDir) - 1) {
+    if (strlen(path) > PATH_MAX - strlen(STATE->_rootDir) - 1)
+    {
         return -EINVAL;
     }
 
-
+    if ((fi->flags & 3) != O_RDONLY)
+    {
+        return -EACCES;
+    }
+    
     int fd;
     char actualPath[PATH_MAX];
 
     toActualPath(actualPath, path);
     fd = open(actualPath, fi->flags);
 
-    if (fd < SUCCESS) {
+    if (fd < SUCCESS)
+    {
         return -errno;
     }
 
@@ -241,11 +293,13 @@ int caching_open(const char *path, struct fuse_file_info *fi)
  */
 size_t getOffset(size_t firstStart, size_t secondStart)
 {
-    if (firstStart > secondStart) {
+    if (firstStart > secondStart)
+    {
         return firstStart - secondStart;
     }
 
-    else {
+    else
+    {
         return 0;
     }
 }
@@ -256,7 +310,8 @@ size_t getOffset(size_t firstStart, size_t secondStart)
 size_t getNumOfBytes(size_t blockStart, size_t blockEnd, size_t reqStart, size_t reqEnd)
 {
     // check if we need to read from the start of the block (or the whole block)
-    if (blockStart >= reqStart) {
+    if (blockStart >= reqStart)
+    {
         return min(reqEnd - blockStart, reqEnd - reqStart, blockEnd - blockStart);
     }
 
@@ -270,7 +325,9 @@ size_t getNumOfBytes(size_t blockStart, size_t blockEnd, size_t reqStart, size_t
 int getIndexToInsert()
 {
     // checking if the cache is not full
-    if (STATE->_numOfTakenBlocks < STATE->_numOfBlocks) {
+    if (STATE->_numOfTakenBlocks < STATE->_numOfBlocks)
+    {
+        STATE->_blocks[STATE->_numOfTakenBlocks] = NULL;
         return (STATE->_numOfTakenBlocks)++;
     }
 
@@ -326,7 +383,8 @@ void readDataFromCache(const char *path, char *buf, size_t size, off_t offset,
         CacheBlock *cur = STATE->_blocks[i];
 
         // checking if the current block is part of the requested file
-        if (strcmp(path, cur->_fileName) == 0) {
+        if (strcmp(path, cur->_fileName) == 0)
+        {
             // checking if we need to read the current block
             if (endOfReading >= cur->_start && startOfReading <= cur->_end) {
                 readFromBlock(cur, buf, startOfReading, endOfReading,
@@ -373,8 +431,10 @@ void readDataFromDisc(const char *path, char *buf, int numOfBlocks, off_t offset
             int indexToInsert = getIndexToInsert();
             delete STATE->_blocks[indexToInsert];
 
-            // adding the new block instead of the LFU one
+            // adding the new block insted of the LFU one
             STATE->_blocks[indexToInsert] = newBlock;
+
+            curByte += bytesToReadFromBlock-1;
         }
     }
 }
@@ -390,8 +450,10 @@ void readDataFromDisc(const char *path, char *buf, int numOfBlocks, off_t offset
 int caching_read(const char *path, char *buf, size_t size, off_t offset,
                  struct fuse_file_info *fi)
 {
-    if (logFunctionEntry(READ_FUNC) < SUCCESS) {
-        return -errno;
+    int ret;
+    if ((ret = functionEntry(path, READ_FUNC)) != SUCCESS)
+    {
+        return ret;
     }
 
     // calculating the number of blocks that will be read
@@ -402,7 +464,6 @@ int caching_read(const char *path, char *buf, size_t size, off_t offset,
     initHasBlockBeenRead(numOfBlocks, hasBlockBeenRead);
 
     // todo: handle errors
-    // todo: check in forum if this is legal
     // looking in the cache for blocks that hold requested data and copying it to the buffer
     readDataFromCache(path, buf, size, offset, hasBlockBeenRead);
     // todo: maybe check if needed
@@ -437,8 +498,10 @@ int caching_read(const char *path, char *buf, size_t size, off_t offset,
  */
 int caching_flush(const char *path, struct fuse_file_info *fi)
 {
-    if (logFunctionEntry(FLUSH_FUNC) < SUCCESS) {
-        return -errno;
+    int ret;
+    if ((ret = functionEntry(path, FLUSH_FUNC)) != SUCCESS)
+    {
+        return ret;
     }
 
     return SUCCESS;
@@ -460,11 +523,14 @@ int caching_flush(const char *path, struct fuse_file_info *fi)
  */
 int caching_release(const char *path, struct fuse_file_info *fi)
 {
-    if (logFunctionEntry(RELEASE_FUNC) < SUCCESS) {
-        return -errno;
+    int ret;
+    if ((ret = functionEntry(path, RELEASE_FUNC)) != SUCCESS)
+    {
+        return ret;
     }
 
-    if (close(fi->fh) == FAILURE) {
+    if (close(fi->fh) == FAILURE)
+    {
         return -errno;
     }
 
@@ -480,12 +546,15 @@ int caching_release(const char *path, struct fuse_file_info *fi)
  */
 int caching_opendir(const char *path, struct fuse_file_info *fi)
 {
-    if (logFunctionEntry(OPENDIR_FUNC) < SUCCESS) {
-        return -errno;
+    int ret;
+    if ((ret = functionEntry(path, OPENDIR_FUNC)) != SUCCESS)
+    {
+        return ret;
     }
 
     // file path too long
-    if (strlen(path) > PATH_MAX - strlen(STATE->_rootDir) - 1) {
+    if (strlen(path) > PATH_MAX - strlen(STATE->_rootDir) - 1)
+    {
         return -EINVAL;
     }
 
@@ -493,7 +562,8 @@ int caching_opendir(const char *path, struct fuse_file_info *fi)
     toActualPath(actualPath, path);
 
     DIR *dir = opendir(actualPath);
-    if (dir == NULL) {
+    if (dir == NULL)
+    {
         return -errno;
     }
 
@@ -518,25 +588,29 @@ int caching_opendir(const char *path, struct fuse_file_info *fi)
 int caching_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset,
                     struct fuse_file_info *fi)
 {
-    if (logFunctionEntry(READDIR_FUNC) < SUCCESS) {
-        return -errno;
+    int ret;
+    if ((ret = functionEntry(path, READDIR_FUNC)) != SUCCESS)
+    {
+        return ret;
     }
 
-    DIR *dir = (DIR * )(uintptr_t)
-    fi->fh;
+    DIR *dir = (DIR *) (uintptr_t) fi->fh;
     struct dirent *dEntry;
 
     // reset errno before calling readdir
     errno = SUCCESS;
-    while ((dEntry = readdir(dir)) != NULL) {
-        if (filler(buf, dEntry->d_name, NULL, 0) != SUCCESS) {
+    while ((dEntry = readdir(dir)) != NULL)
+    {
+        if (filler(buf, dEntry->d_name, NULL, 0) != SUCCESS)
+        {
             return -EINVAL;
         }
 
         errno = SUCCESS;
     }
 
-    if (errno != SUCCESS) {
+    if (errno != SUCCESS)
+    {
         return -errno;
     }
 
@@ -549,11 +623,13 @@ int caching_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t o
  */
 int caching_releasedir(const char *path, struct fuse_file_info *fi)
 {
-    if (logFunctionEntry(RELEASEDIR_FUNC) < SUCCESS) {
-        return -errno;
+    int ret;
+    if ((ret = functionEntry(path, RELEASEDIR_FUNC)) != SUCCESS)
+    {
+        return ret;
     }
 
-    if (closedir((DIR * )(uintptr_t) { fi->fh }) == FAILURE)
+    if (closedir((DIR *) (uintptr_t) fi->fh) == FAILURE)
     {
         return -errno;
     }
@@ -564,13 +640,16 @@ int caching_releasedir(const char *path, struct fuse_file_info *fi)
 /** Rename a file */
 int caching_rename(const char *path, const char *newpath)
 {
-    if (logFunctionEntry(RENAME_FUNC) < SUCCESS) {
-        return -errno;
+    int ret;
+    if ((ret = functionEntry(path, RENAME_FUNC)) != SUCCESS)
+    {
+        return ret;
     }
 
     // file path too long
     if (strlen(path) > PATH_MAX - strlen(STATE->_rootDir) - 1 ||
-        strlen(newpath) > PATH_MAX - strlen(STATE->_rootDir) - 1) {
+        strlen(newpath) > PATH_MAX - strlen(STATE->_rootDir) - 1)
+    {
         return -EINVAL;
     }
 
@@ -580,17 +659,20 @@ int caching_rename(const char *path, const char *newpath)
     toActualPath(actualPath, path);
     toActualPath(actualNewPath, newpath);
 
-    if (rename(actualPath, actualNewPath) != SUCCESS) {
+    if (rename(actualPath, actualNewPath) != SUCCESS)
+    {
         return -errno;
     }
 
     // rename paths in cache
-    for (int i = 0; i < STATE->_numOfTakenBlocks; ++i) {
-        if (strncmp(path, STATE->_blocks[i]._fileName, PATH_MAX) == 0) {
-            delete[] STATE->_blocks[i]._fileName;
+    for (int i = 0; i < STATE->_numOfTakenBlocks; ++i)
+    {
+        if (strncmp(path, STATE->_blocks[i]->_fileName, PATH_MAX) == 0)
+        {
+            delete[] STATE->_blocks[i]->_fileName;
 
-            STATE->_blocks[i]._fileName = new char[strlen(newpath) + 1];
-            memcpy(STATE->_blocks[i]._fileName, newpath, strlen(newpath) + 1);
+            STATE->_blocks[i]->_fileName = new char[strlen(newpath) + 1];
+            memcpy(STATE->_blocks[i]->_fileName, newpath, strlen(newpath) + 1);
         }
     }
 
@@ -645,17 +727,20 @@ void caching_destroy(void *userdata)
 int caching_ioctl(const char *, int cmd, void *arg,
                   struct fuse_file_info *, unsigned int flags, void *data)
 {
-    if (logFunctionEntry(IOCTL_FUNC) < SUCCESS) {
+    if (logFunctionEntry(IOCTL_FUNC) < SUCCESS)
+    {
         return -errno;
     }
 
-    for (int i = 0; i < STATE->_numOfTakenBlocks; ++i) {
-        if (logCacheBlock(STATE->_blocks + i) < SUCCESS) {
+    for (int i = 0; i < STATE->_numOfTakenBlocks; ++i)
+    {
+        if (logCacheBlock(STATE->_blocks[i]) < SUCCESS)
+        {
             return -errno;
         }
     }
 
-    return 0;
+    return SUCCESS;
 }
 
 
@@ -709,10 +794,12 @@ int isDir(char const *path)
     int isDir = 1;
     struct stat s;
     int statRet = stat(path, &s);
-    if (statRet == FAILURE) {
+    if (statRet == FAILURE)
+    {
         isDir = 0;
     }
-    else if (!S_ISDIR(s.st_mode)) {
+    else if (!S_ISDIR(s.st_mode))
+    {
         isDir = 0;
     }
 
@@ -733,11 +820,13 @@ PrivateData *initPrivateData(char *const *argv, long numOfBlocks, long blockSize
     data->_numOfBlocks = numOfBlocks;
 
     data->_rootDir = realpath(argv[1], NULL);
-    if (data->_rootDir == NULL) {
+    if (data->_rootDir == NULL)
+    {
         handleSystemError(ROOTDIR_ERROR_MSG);
     }
     // rootDir is to long to create the logger file
-    if (strlen(data->_rootDir) + strlen(LOGGER_FILENAME) >= PATH_MAX) {
+    if (strlen(data->_rootDir) + strlen(LOGGER_FILENAME) >= PATH_MAX)
+    {
         handleSystemError(ROOTDIR_TOO_LONG_ERROR_MSG);
     }
 
@@ -746,12 +835,14 @@ PrivateData *initPrivateData(char *const *argv, long numOfBlocks, long blockSize
     strncat(loggerPath, LOGGER_FILENAME, strlen(LOGGER_FILENAME));
 
     data->_log = openLogger(loggerPath);
-    if (data->_log == NULL) {
+    if (data->_log == NULL)
+    {
         handleSystemError(OPEN_LOGGER_ERROR_MSG);
     }
 
-    data->_blocks = new(std::nothrow) CacheBlock[numOfBlocks];
-    if (data->_blocks == NULL) {
+    data->_blocks = new(std::nothrow) CacheBlock *[numOfBlocks];
+    if (data->_blocks == NULL)
+    {
         handleSystemError(CACHE_ALLOC_ERROR_MSG);
     }
 
@@ -764,10 +855,12 @@ int main(int argc, char *argv[])
     int validArgs = 1;
     long numOfBlocks, blockSize;
 
-    if (argc != 5) {
+    if (argc != 5)
+    {
         validArgs = 0;
     }
-    else {
+    else
+    {
         validArgs &= isDir(argv[1]) & isDir(argv[2]);
         validArgs &= (((numOfBlocks = strtol(argv[3], NULL, 10)) > 0) && errno == 0 &&
                       numOfBlocks <= INT_MAX);
@@ -775,7 +868,8 @@ int main(int argc, char *argv[])
                       blockSize <= INT_MAX);
     }
 
-    if (!validArgs) {
+    if (!validArgs)
+    {
         invalidUsage();
     }
 
@@ -784,7 +878,8 @@ int main(int argc, char *argv[])
     PrivateData *data = initPrivateData(argv, numOfBlocks, blockSize);
 
     argv[1] = argv[2];
-    for (int i = 2; i < (argc - 1); i++) {
+    for (int i = 2; i < (argc - 1); i++)
+    {
         argv[i] = NULL;
     }
     argv[2] = (char *) "-s";
