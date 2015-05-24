@@ -62,9 +62,6 @@ static const char *const GETATTR_FUNC = "getattr";
 
 static const char *const FGETATTR_FUNC = "fgetattr";
 
-
-// TODO: handle logfile in functions
-
 static const char *const RENAME_FUNC = "rename";
 
 static const char *const IOCTL_FUNC = "ioctl";
@@ -84,6 +81,21 @@ static void toActualPath(char fpath[PATH_MAX], const char *path)
 {
     strcpy(fpath, STATE->_rootDir);
     strncat(fpath, path, PATH_MAX - strlen(STATE->_rootDir) - 1);
+}
+
+int functionEntry(const char *path, const char *funcName)
+{
+    if (logFunctionEntry(funcName) < SUCCESS)
+    {
+        return -errno;
+    }
+
+    if (strncmp(path + 1, LOGGER_FILENAME, strlen(LOGGER_FILENAME) + 1) == 0)
+    {
+        return -ENOENT;
+    }
+
+    return SUCCESS;
 }
 
 /*
@@ -116,9 +128,10 @@ int getLFU()
  */
 int caching_getattr(const char *path, struct stat *statbuf)
 {
-    if (logFunctionEntry(GETATTR_FUNC) < SUCCESS)
+    int ret;
+    if ((ret = functionEntry(path, GETATTR_FUNC)) != SUCCESS)
     {
-        return -errno;
+        return ret;
     }
 
     // file path too long
@@ -152,9 +165,10 @@ int caching_getattr(const char *path, struct stat *statbuf)
  */
 int caching_fgetattr(const char *path, struct stat *statbuf, struct fuse_file_info *fi)
 {
-    if (logFunctionEntry(FGETATTR_FUNC) < SUCCESS)
+    int ret;
+    if ((ret = functionEntry(path, FGETATTR_FUNC)) != SUCCESS)
     {
-        return -errno;
+        return ret;
     }
 
     if (strncmp(path, "/", 2) == 0)
@@ -183,9 +197,10 @@ int caching_fgetattr(const char *path, struct stat *statbuf, struct fuse_file_in
  */
 int caching_access(const char *path, int mask)
 {
-    if (logFunctionEntry(ACCESS_FUNC) < SUCCESS)
+    int ret;
+    if ((ret = functionEntry(path, ACCESS_FUNC)) != SUCCESS)
     {
-        return -errno;
+        return ret;
     }
 
     // file path too long
@@ -222,10 +237,10 @@ int caching_access(const char *path, int mask)
  */
 int caching_open(const char *path, struct fuse_file_info *fi)
 {
-    //todo: add error if flags indicate write
-    if (logFunctionEntry(OPEN_FUNC) < SUCCESS)
+    int ret;
+    if ((ret = functionEntry(path, OPEN_FUNC)) != SUCCESS)
     {
-        return -errno;
+        return ret;
     }
 
     // file path too long
@@ -238,6 +253,7 @@ int caching_open(const char *path, struct fuse_file_info *fi)
     int fd;
     char actualPath[PATH_MAX];
 
+    // todo: check permissions
     toActualPath(actualPath, path);
     fd = open(actualPath, fi->flags);
 
@@ -385,7 +401,7 @@ void readDataFromDisc(const char *path, char *buf, size_t size, off_t offset, bo
         {
             // finding the least frequently used block in the cache and deleting it
             int indexToInsert = getIndexToInsert();
-            if (STATE->_blocks[indexToInsert]!=NULL)
+            if (STATE->_blocks[indexToInsert] != NULL)
             {
                 delete STATE->_blocks[indexToInsert];
             }
@@ -428,9 +444,10 @@ void readDataFromDisc(const char *path, char *buf, size_t size, off_t offset, bo
 int caching_read(const char *path, char *buf, size_t size, off_t offset,
                  struct fuse_file_info *fi)
 {
-    if (logFunctionEntry(READ_FUNC) < SUCCESS)
+    int ret;
+    if ((ret = functionEntry(path, READ_FUNC)) != SUCCESS)
     {
-        return -errno;
+        return ret;
     }
 
     // will hold a bool var for each byte in the buf - true if it has been read, false o.w
@@ -471,9 +488,10 @@ int caching_read(const char *path, char *buf, size_t size, off_t offset,
  */
 int caching_flush(const char *path, struct fuse_file_info *fi)
 {
-    if (logFunctionEntry(FLUSH_FUNC) < SUCCESS)
+    int ret;
+    if ((ret = functionEntry(path, FLUSH_FUNC)) != SUCCESS)
     {
-        return -errno;
+        return ret;
     }
 
     return SUCCESS;
@@ -495,9 +513,10 @@ int caching_flush(const char *path, struct fuse_file_info *fi)
  */
 int caching_release(const char *path, struct fuse_file_info *fi)
 {
-    if (logFunctionEntry(RELEASE_FUNC) < SUCCESS)
+    int ret;
+    if ((ret = functionEntry(path, RELEASE_FUNC)) != SUCCESS)
     {
-        return -errno;
+        return ret;
     }
 
     if (close(fi->fh) == FAILURE)
@@ -517,9 +536,10 @@ int caching_release(const char *path, struct fuse_file_info *fi)
  */
 int caching_opendir(const char *path, struct fuse_file_info *fi)
 {
-    if (logFunctionEntry(OPENDIR_FUNC) < SUCCESS)
+    int ret;
+    if ((ret = functionEntry(path, OPENDIR_FUNC)) != SUCCESS)
     {
-        return -errno;
+        return ret;
     }
 
     // file path too long
@@ -558,9 +578,10 @@ int caching_opendir(const char *path, struct fuse_file_info *fi)
 int caching_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset,
                     struct fuse_file_info *fi)
 {
-    if (logFunctionEntry(READDIR_FUNC) < SUCCESS)
+    int ret;
+    if ((ret = functionEntry(path, READDIR_FUNC)) != SUCCESS)
     {
-        return -errno;
+        return ret;
     }
 
     DIR *dir = (DIR *) (uintptr_t) fi->fh;
@@ -592,9 +613,10 @@ int caching_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t o
  */
 int caching_releasedir(const char *path, struct fuse_file_info *fi)
 {
-    if (logFunctionEntry(RELEASEDIR_FUNC) < SUCCESS)
+    int ret;
+    if ((ret = functionEntry(path, RELEASEDIR_FUNC)) != SUCCESS)
     {
-        return -errno;
+        return ret;
     }
 
     if (closedir((DIR *) (uintptr_t) fi->fh) == FAILURE)
@@ -608,9 +630,10 @@ int caching_releasedir(const char *path, struct fuse_file_info *fi)
 /** Rename a file */
 int caching_rename(const char *path, const char *newpath)
 {
-    if (logFunctionEntry(RENAME_FUNC) < SUCCESS)
+    int ret;
+    if ((ret = functionEntry(path, RENAME_FUNC)) != SUCCESS)
     {
-        return -errno;
+        return ret;
     }
 
     // file path too long
