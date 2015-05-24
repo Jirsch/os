@@ -19,7 +19,6 @@
 #include <iostream>
 #include <dirent.h>
 #include <unistd.h>
-#include <algorithm>
 #include <math.h>
 
 using namespace std;
