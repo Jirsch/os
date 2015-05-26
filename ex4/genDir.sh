@@ -10,7 +10,7 @@ mkdir /tmp/root/inDir
 mkdir /tmp/root/secondDir
 
 for i in {1..999999}; do
-    echo ((i % 10)) >> /tmp/root/inDir/large
+    echo $((i % 10)) >> /tmp/root/inDir/large
     echo "|" >> /tmp/root/inDir/large
     if !((i%1000)); then
         echo $i >> /tmp/root/inDir/large
