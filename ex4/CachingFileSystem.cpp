@@ -380,7 +380,7 @@ int readDataFromCache(const char *path, char *buf, size_t size, off_t offset,
                                            getOffset(cur->_start, startOfReading));
 
                 int blockNum =
-                        (cur->_start + STATE->_blockSize - startOfReading) / STATE->_blockSize;
+                        (cur->_end - startOfReading) / STATE->_blockSize;
                 hasBlockBeenRead[blockNum] = true;
             }
         }
@@ -419,7 +419,7 @@ int readDataFromDisc(const char *path, char *buf, int numOfBlocks, size_t size, 
             }
 
             // initializing a new block and reading from it to the buffer
-            CacheBlock *newBlock = new CacheBlock(path, startOfBlock, startOfBlock + bytesRead,
+            CacheBlock *newBlock = new CacheBlock(path, startOfBlock, startOfBlock + bytesRead-1,
                                                   retrievedData);
             bytesReadFromDisc += readFromBlock(newBlock, buf, offset, offset + size,
                                                getOffset(newBlock->_start, offset));
