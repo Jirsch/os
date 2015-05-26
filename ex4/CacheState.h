@@ -14,6 +14,8 @@
 #define PATH_MAX 4086
 #endif
 
+#define STATE ((PrivateData *) fuse_get_context()->private_data)
+
 typedef struct CacheBlock
 {
     char *_fileName;
@@ -28,8 +30,8 @@ typedef struct CacheBlock
         _fileName = new char[strlen(fileName) + 1];
         memcpy(_fileName, fileName, strlen(fileName) + 1);
 
-        _data = new char[sizeof(data)];
-        memcpy(_data, data, sizeof(data));
+        _data = new char[end - start];
+        memcpy(_data, data, end -start);
 
         _accessCounter = 0;
     }
@@ -52,5 +54,4 @@ typedef struct PrivateData
     FILE *_log;
 } PrivateData;
 
-#define STATE ((PrivateData *) fuse_get_context()->private_data)
 #endif //EX4_CACHESTATE_H
