@@ -335,7 +335,7 @@ size_t readFromBlock(CacheBlock *block, char *buf, size_t start, size_t end, siz
     size_t bytesToReadFromBlock = getNumOfBytes(block->_start, block->_end, start, end);
 
     // reading the requested bytes from the block to the buffer
-    memcpy(buf + bufOffset, (block->_data) + getOffset(start, block->_start), bytesToReadFromBlock);
+    memcpy(buf + start, (block->_data) + getOffset(start, block->_start), bytesToReadFromBlock);
 
     (block->_accessCounter)++;
 
@@ -354,13 +354,13 @@ off_t getStartOfBlock(size_t curByte)
  * go over the blocks in the cache and read data from the relevant blocks
  * return the number f blocks read from cache
  */
-size_t readDataFromCache(const char *path, char *buf, size_t size, off_t offset,
-                         bool *hasBlockBeenRead)
+int readDataFromCache(const char *path, char *buf, size_t size, off_t offset,
+                      bool *hasBlockBeenRead)
 {
     size_t startOfReading = offset;
     size_t endOfReading = offset + size;
 
-    size_t bytesRead = 0;
+    int bytesRead = 0;
 
     for (int i = 0; i < STATE->_numOfTakenBlocks; i++)
     {
@@ -373,7 +373,7 @@ size_t readDataFromCache(const char *path, char *buf, size_t size, off_t offset,
             if (endOfReading >= cur->_start && startOfReading <= cur->_end)
             {
                 bytesRead += readFromBlock(cur, buf, startOfReading, endOfReading,
-                                           getOffset(cur->_start, startOfReading));
+                                           getOffset(startOfReading, cur->_start));
 
                 int blockNum =
                         (cur->_start + STATE->_blockSize - startOfReading) / STATE->_blockSize;
@@ -389,11 +389,11 @@ size_t readDataFromCache(const char *path, char *buf, size_t size, off_t offset,
  * go over the buffer and read from the disc the data that wasn't in the cache
  * return the number of bytes read
  */
-size_t readDataFromDisc(const char *path, char *buf, int numOfBlocks, off_t offset,
-                        bool *hasBlockBeenRead, struct fuse_file_info *fi)
+int readDataFromDisc(const char *path, char *buf, int numOfBlocks, size_t size, off_t offset,
+                     bool *hasBlockBeenRead, struct fuse_file_info *fi)
 {
-    size_t bytesRead;
-    size_t bytesReadFromDisc = 0;
+    int bytesRead;
+    int bytesReadFromDisc = 0;
 
     for (int curBlock = 0; curBlock < numOfBlocks; curBlock++)
     {
@@ -401,7 +401,7 @@ size_t readDataFromDisc(const char *path, char *buf, int numOfBlocks, off_t offs
         bytesRead = 0;
 
         // checking if the current byte has been read already
-        if (hasBlockBeenRead[curBlock] == false)
+        if (!hasBlockBeenRead[curBlock])
         {
             // finding the byte that starts the block of the current byte
             int startOfBlock = getStartOfBlock(curBlock * STATE->_blockSize + offset);
@@ -417,8 +417,8 @@ size_t readDataFromDisc(const char *path, char *buf, int numOfBlocks, off_t offs
             // initializing a new block and reading from it to the buffer
             CacheBlock *newBlock = new CacheBlock(path, startOfBlock, startOfBlock + bytesRead,
                                                   retrievedData); // todo: STATE->_blockSize -1?
-            bytesReadFromDisc += readFromBlock(newBlock, buf, curBlock + offset,
-                                               offset + numOfBlocks, curBlock);
+            bytesReadFromDisc += readFromBlock(newBlock, buf, offset, offset + size, getOffset
+                    (offset, newBlock->_start));
 
             // updating that the block was read
             hasBlockBeenRead[curBlock] = true;
@@ -446,6 +446,7 @@ size_t readDataFromDisc(const char *path, char *buf, int numOfBlocks, off_t offs
 int caching_read(const char *path, char *buf, size_t size, off_t offset,
                  struct fuse_file_info *fi)
 {
+    //todo: add treatment of too much reading
     int ret;
     if ((ret = functionEntry(path, READ_FUNC)) != SUCCESS)
     {
@@ -453,7 +454,8 @@ int caching_read(const char *path, char *buf, size_t size, off_t offset,
     }
 
     // calculating the number of blocks that will be read
-    int numOfBlocks = size / STATE->_blockSize + 1;
+    int numOfBlocks = size % STATE->_blockSize != 0 ? size / STATE->_blockSize + 1 :
+                      size / STATE->_blockSize;
 
     // will hold a bool var for each block in the buf - true if it has been read, false o.w
     bool hasBlockBeenRead[numOfBlocks];
@@ -466,7 +468,8 @@ int caching_read(const char *path, char *buf, size_t size, off_t offset,
     if (bytesRead < size)
     {
         // reading the rest of the requested data from the disk
-        if (ret = readDataFromDisc(path, buf, numOfBlocks, offset, hasBlockBeenRead, fi) < SUCCESS)
+        if (ret = readDataFromDisc(path, buf, numOfBlocks, size, offset, hasBlockBeenRead, fi) <
+                  SUCCESS)
         {
             return -errno;
         }
