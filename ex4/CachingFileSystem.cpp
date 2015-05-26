@@ -373,14 +373,15 @@ int readDataFromCache(const char *path, char *buf, size_t size, off_t offset,
         // checking if the current block is part of the requested file
         if (strncmp(path, cur->_fileName, PATH_MAX) == 0)
         {
+            int blockNum = (cur->_end - startOfReading) / STATE->_blockSize;
+
             // checking if we need to read the current block
-            if (endOfReading >= cur->_start && startOfReading <= cur->_end)
+            if (endOfReading >= cur->_start && startOfReading <= cur->_end &&
+                !hasBlockBeenRead[blockNum])
             {
                 bytesRead += readFromBlock(cur, buf, startOfReading, endOfReading,
                                            getOffset(cur->_start, startOfReading));
 
-                int blockNum =
-                        (cur->_end - startOfReading) / STATE->_blockSize;
                 hasBlockBeenRead[blockNum] = true;
             }
         }
@@ -480,7 +481,7 @@ int caching_read(const char *path, char *buf, size_t size, off_t offset,
     std::cout << "bytesRead: " << bytesRead << std::endl;
 
     int blocksRemaining = 0;
-    for (int i=0; i<numOfBlocks;++i)
+    for (int i = 0; i < numOfBlocks; ++i)
     {
         blocksRemaining += hasBlockBeenRead[i] ? 0 : 1;
         // todo: remove
