@@ -18,7 +18,7 @@ TARSRCS=$(LIBSRC) $(LIBHEADER) Makefile README
 
 all: $(TARGETS)
 
-$(TARGETS): $(LIBOBJ)
+$(TARGETS): $(LIBSRC) $(LIBHEADER)
 	$(CC) $(CFLAGS) $<  `pkg-config fuse --cflags --libs` -o $@
 
 clean:
