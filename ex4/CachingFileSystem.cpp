@@ -407,7 +407,7 @@ int readDataFromDisc(const char *path, char *buf, int numOfBlocks, size_t size, 
             int startOfBlock = getStartOfBlock(curBlock * STATE->_blockSize + offset);
 
             // initializing the data and reading it from the block
-            char *retrievedData[STATE->_blockSize];
+            char retrievedData[STATE->_blockSize];
             if ((bytesRead = pread(fi->fh, retrievedData, STATE->_blockSize, startOfBlock)) <
                 SUCCESS)
             {
