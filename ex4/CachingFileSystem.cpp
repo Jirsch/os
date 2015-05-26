@@ -438,10 +438,6 @@ int readDataFromDisc(const char *path, char *buf, int numOfBlocks, size_t size, 
 
             // adding the new block instead of the LFU one
             STATE->_blocks[indexToInsert] = newBlock;
-
-            // todo: remove
-            std::cout << "Disc block #: " << curBlock << " startOfBlock: " << startOfBlock <<
-            " bytesRead: " << bytesRead << " cacheIdx: " << indexToInsert << std::endl;
         }
     }
 
@@ -461,9 +457,6 @@ int caching_read(const char *path, char *buf, size_t size, off_t offset,
 {
     //todo: add treatment of too much reading
 
-    //todo: remove
-    std::cout << "path: " << path << " offset: " << offset << " size: " << size << std::endl;
-
     int ret;
     if ((ret = functionEntry(path, READ_FUNC)) != SUCCESS)
     {
@@ -481,15 +474,10 @@ int caching_read(const char *path, char *buf, size_t size, off_t offset,
     // looking in the cache for blocks that hold requested data and copying it to the buffer
     size_t bytesRead = readDataFromCache(path, buf, size, offset, hasBlockBeenRead);
 
-    // todo: remove
-    std::cout << "bytesRead: " << bytesRead << std::endl;
-
     int blocksRemaining = 0;
     for (int i = 0; i < numOfBlocks; ++i)
     {
         blocksRemaining += hasBlockBeenRead[i] ? 0 : 1;
-        // todo: remove
-        std::cout << "block#: " << i << " read: " << hasBlockBeenRead[i] << std::endl;
     }
 
     // checking if we need to read from disc
@@ -503,9 +491,6 @@ int caching_read(const char *path, char *buf, size_t size, off_t offset,
         }
         bytesRead += ret;
     }
-
-    // todo: remove
-    std::cout << "bytesRead: " << bytesRead << std::endl;
 
     return bytesRead;
 }
@@ -678,6 +663,7 @@ int caching_releasedir(const char *path, struct fuse_file_info *fi)
 /** Rename a file */
 int caching_rename(const char *path, const char *newpath)
 {
+    // todo: handle dir
     int ret;
     if ((ret = functionEntry(path, RENAME_FUNC)) != SUCCESS)
     {
