@@ -25,8 +25,11 @@ typedef struct CacheBlock
     char *_data;
 
     // constructor
-    CacheBlock(char *fileName, size_t start, size_t end, char *data) : _start(start), _end(end)
+    CacheBlock(char *fileName, size_t start, size_t end, char *data)
     {
+        _start = start;
+        _end = end;
+
         _fileName = new char[strlen(fileName) + 1];
         memcpy(_fileName, fileName, strlen(fileName) + 1);
 
