@@ -19,7 +19,7 @@ TARSRCS=$(LIBSRC) $(LIBHEADER) Makefile README
 all: $(TARGETS)
 
 $(TARGETS): $(LIBSRC) $(LIBHEADER)
-	$(CC) $(CFLAGS) $<  `pkg-config fuse --cflags --libs` -o $@
+	$(CC) $(CFLAGS) $^  `pkg-config fuse --cflags --libs` -o $@
 
 clean:
 	$(RM) $(TARGETS) $(EXLIB) $(OBJ) $(LIBOBJ) *~ *core
