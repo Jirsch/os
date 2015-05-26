@@ -644,6 +644,7 @@ int caching_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t o
     errno = SUCCESS;
     while ((dEntry = readdir(dir)) != NULL)
     {
+        cout << "path: " << path << " name: " << dEntry->d_name << std::endl;
         if (strncmp(path, "/", 1) != 0 || strncmp(dEntry->d_name, LOGGER_FILENAME, strlen
                 (LOGGER_FILENAME)) != 0)
         {
@@ -695,8 +696,7 @@ int caching_rename(const char *path, const char *newpath)
 
     // file path too long
     if (strlen(path) > PATH_MAX - strlen(STATE->_rootDir) - 1 ||
-        strlen(newpath) > PATH_MAX - strlen(STATE->_rootDir) - 1 ||
-        isDir(path))
+        strlen(newpath) > PATH_MAX - strlen(STATE->_rootDir) - 1 )
     {
         return -EINVAL;
     }
@@ -706,6 +706,11 @@ int caching_rename(const char *path, const char *newpath)
 
     toActualPath(actualPath, path);
     toActualPath(actualNewPath, newpath);
+
+    if (isDir(actualPath))
+    {
+        return  -EINVAL;
+    }
 
     if (rename(actualPath, actualNewPath) != SUCCESS)
     {
