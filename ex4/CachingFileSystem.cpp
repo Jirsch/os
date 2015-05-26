@@ -339,7 +339,7 @@ size_t readFromBlock(CacheBlock *block, char *buf, size_t start, size_t end, siz
     size_t bytesToReadFromBlock = getNumOfBytes(block->_start, block->_end, start, end);
 
     // reading the requested bytes from the block to the buffer
-    memcpy(buf + start, (block->_data) + getOffset(start, block->_start), bytesToReadFromBlock);
+    memcpy(buf + bufOffset, (block->_data) + getOffset(start, block->_start), bytesToReadFromBlock);
 
     (block->_accessCounter)++;
 
@@ -377,7 +377,7 @@ int readDataFromCache(const char *path, char *buf, size_t size, off_t offset,
             if (endOfReading >= cur->_start && startOfReading <= cur->_end)
             {
                 bytesRead += readFromBlock(cur, buf, startOfReading, endOfReading,
-                                           getOffset(startOfReading, cur->_start));
+                                           getOffset(cur->_start, startOfReading));
 
                 int blockNum =
                         (cur->_start + STATE->_blockSize - startOfReading) / STATE->_blockSize;
@@ -421,8 +421,8 @@ int readDataFromDisc(const char *path, char *buf, int numOfBlocks, size_t size, 
             // initializing a new block and reading from it to the buffer
             CacheBlock *newBlock = new CacheBlock(path, startOfBlock, startOfBlock + bytesRead,
                                                   retrievedData);
-            bytesReadFromDisc += readFromBlock(newBlock, buf, offset, offset + size, getOffset
-                    (offset, newBlock->_start));
+            bytesReadFromDisc += readFromBlock(newBlock, buf, offset, offset + size,
+                                               getOffset(newBlock->_start, offset));
 
             // updating that the block was read
             hasBlockBeenRead[curBlock] = true;
@@ -436,7 +436,7 @@ int readDataFromDisc(const char *path, char *buf, int numOfBlocks, size_t size, 
 
             // todo: remove
             std::cout << "Disc block #: " << curBlock << " startOfBlock: " << startOfBlock <<
-                    " bytesRead: " << bytesRead << " cacheIdx: " << indexToInsert << std::endl;
+            " bytesRead: " << bytesRead << " cacheIdx: " << indexToInsert << std::endl;
         }
     }
 
@@ -457,7 +457,7 @@ int caching_read(const char *path, char *buf, size_t size, off_t offset,
     //todo: add treatment of too much reading
 
     //todo: remove
-    std::cout << "path: " << path << " offset: " << offset << " size: " << size<< std::endl;
+    std::cout << "path: " << path << " offset: " << offset << " size: " << size << std::endl;
 
     int ret;
     if ((ret = functionEntry(path, READ_FUNC)) != SUCCESS)
@@ -470,7 +470,7 @@ int caching_read(const char *path, char *buf, size_t size, off_t offset,
                       size / STATE->_blockSize;
 
     // todo: remove
-    std::cout << "numBlocks: " << numOfBlocks<< std::endl;
+    std::cout << "numBlocks: " << numOfBlocks << std::endl;
 
     // will hold a bool var for each block in the buf - true if it has been read, false o.w
     bool hasBlockBeenRead[numOfBlocks];
@@ -480,7 +480,7 @@ int caching_read(const char *path, char *buf, size_t size, off_t offset,
     size_t bytesRead = readDataFromCache(path, buf, size, offset, hasBlockBeenRead);
 
     // todo: remove
-    std::cout << "bytesRead: " << bytesRead<< std::endl;
+    std::cout << "bytesRead: " << bytesRead << std::endl;
 
     // checking if we need to read from disc
     if (bytesRead < size)
@@ -495,7 +495,7 @@ int caching_read(const char *path, char *buf, size_t size, off_t offset,
     }
 
     // todo: remove
-    std::cout << "bytesRead: " << bytesRead<< std::endl;
+    std::cout << "bytesRead: " << bytesRead << std::endl;
 
     return bytesRead;
 }
