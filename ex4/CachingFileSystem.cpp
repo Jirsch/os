@@ -291,11 +291,15 @@ size_t getNumOfBytes(size_t blockStart, size_t blockEnd, size_t reqStart, size_t
     // check if we need to read from the start of the block (or the whole block)
     if (blockStart >= reqStart)
     {
-        return min(reqEnd - blockStart, reqEnd - reqStart, blockEnd - blockStart);
+        return (reqEnd - blockStart < reqEnd - reqStart) ?
+               min(reqEnd - blockStart, blockEnd - blockStart) :
+               min(reqEnd - reqStart, blockEnd - blockStart);
     }
 
     // we need to read from the end of the block (or the whole block)
-    return min(blockEnd - reqStart, reqEnd - reqStart, blockEnd - blockStart);
+    return (blockEnd - reqStart < reqEnd - reqStart) ?
+           min(blockEnd - reqStart, blockEnd - blockStart) :
+           min(reqEnd - reqStart, blockEnd - blockStart);
 }
 
 /*
@@ -468,8 +472,8 @@ int caching_read(const char *path, char *buf, size_t size, off_t offset,
     if (bytesRead < size)
     {
         // reading the rest of the requested data from the disk
-        if (ret = readDataFromDisc(path, buf, numOfBlocks, size, offset, hasBlockBeenRead, fi) <
-                  SUCCESS)
+        if ((ret = readDataFromDisc(path, buf, numOfBlocks, size, offset, hasBlockBeenRead, fi)) <
+            SUCCESS)
         {
             return -errno;
         }

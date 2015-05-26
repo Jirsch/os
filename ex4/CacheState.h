@@ -10,9 +10,9 @@
 #include <stdio.h>
 #include <string.h>
 
-#ifndef PATH_MAX
-#define PATH_MAX 4086
-#endif
+//#ifndef PATH_MAX
+//#define PATH_MAX 4086
+//#endif
 
 #define STATE ((PrivateData *) fuse_get_context()->private_data)
 
