@@ -80,6 +80,30 @@ static void toActualPath(char fpath[PATH_MAX], const char *path)
     strncat(fpath, path, PATH_MAX - strlen(STATE->_rootDir) - 1);
 }
 
+int isDir(char const *path)
+{
+    int isDir = 1;
+    struct stat s;
+    int statRet = stat(path, &s);
+    if (statRet == FAILURE)
+    {
+        isDir = 0;
+    }
+    else if (!S_ISDIR(s.st_mode))
+    {
+        isDir = 0;
+    }
+
+
+    return isDir;
+}
+
+void invalidUsage()
+{
+    cout << USAGE << endl;
+    exit(0);
+}
+
 int functionEntry(const char *path, const char *funcName)
 {
     if (logFunctionEntry(funcName) < SUCCESS)
@@ -163,9 +187,6 @@ int caching_getattr(const char *path, struct stat *statbuf)
 int caching_fgetattr(const char *path, struct stat *statbuf, struct fuse_file_info *fi)
 {
     int ret;
-
-    // todo: remove
-    std::cout << "fget-path: " << path << std::endl;
 
     if ((ret = functionEntry(path, FGETATTR_FUNC)) != SUCCESS)
     {
@@ -616,7 +637,6 @@ int caching_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t o
         return ret;
     }
 
-    //todo: ignore .filesystem.log
     DIR *dir = (DIR *) (uintptr_t) fi->fh;
     struct dirent *dEntry;
 
@@ -624,9 +644,13 @@ int caching_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t o
     errno = SUCCESS;
     while ((dEntry = readdir(dir)) != NULL)
     {
-        if (filler(buf, dEntry->d_name, NULL, 0) != SUCCESS)
+        if (strncmp(path, "/", 1) != 0 || strncmp(dEntry->d_name, LOGGER_FILENAME, strlen
+                (LOGGER_FILENAME)) != 0)
         {
-            return -EINVAL;
+            if (filler(buf, dEntry->d_name, NULL, 0) != SUCCESS)
+            {
+                return -EINVAL;
+            }
         }
 
         errno = SUCCESS;
@@ -663,7 +687,6 @@ int caching_releasedir(const char *path, struct fuse_file_info *fi)
 /** Rename a file */
 int caching_rename(const char *path, const char *newpath)
 {
-    // todo: handle dir
     int ret;
     if ((ret = functionEntry(path, RENAME_FUNC)) != SUCCESS)
     {
@@ -672,7 +695,8 @@ int caching_rename(const char *path, const char *newpath)
 
     // file path too long
     if (strlen(path) > PATH_MAX - strlen(STATE->_rootDir) - 1 ||
-        strlen(newpath) > PATH_MAX - strlen(STATE->_rootDir) - 1)
+        strlen(newpath) > PATH_MAX - strlen(STATE->_rootDir) - 1 ||
+        isDir(path))
     {
         return -EINVAL;
     }
@@ -811,30 +835,6 @@ void init_caching_oper()
     caching_oper.fsyncdir = NULL;
     caching_oper.create = NULL;
     caching_oper.ftruncate = NULL;
-}
-
-int isDir(char const *path)
-{
-    int isDir = 1;
-    struct stat s;
-    int statRet = stat(path, &s);
-    if (statRet == FAILURE)
-    {
-        isDir = 0;
-    }
-    else if (!S_ISDIR(s.st_mode))
-    {
-        isDir = 0;
-    }
-
-
-    return isDir;
-}
-
-void invalidUsage()
-{
-    cout << USAGE << endl;
-    exit(0);
 }
 
 PrivateData *initPrivateData(char *const *argv, long numOfBlocks, long blockSize)
