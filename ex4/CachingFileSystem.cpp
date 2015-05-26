@@ -407,9 +407,6 @@ int readDataFromDisc(const char *path, char *buf, int numOfBlocks, size_t size, 
         // checking if the current byte has been read already
         if (!hasBlockBeenRead[curBlock])
         {
-            // todo: remove
-            std::cout << "Disc block #: " << curBlock << std::endl;
-
             // finding the byte that starts the block of the current byte
             int startOfBlock = getStartOfBlock(curBlock * STATE->_blockSize + offset);
 
@@ -423,7 +420,7 @@ int readDataFromDisc(const char *path, char *buf, int numOfBlocks, size_t size, 
 
             // initializing a new block and reading from it to the buffer
             CacheBlock *newBlock = new CacheBlock(path, startOfBlock, startOfBlock + bytesRead,
-                                                  retrievedData); // todo: STATE->_blockSize -1?
+                                                  retrievedData);
             bytesReadFromDisc += readFromBlock(newBlock, buf, offset, offset + size, getOffset
                     (offset, newBlock->_start));
 
@@ -436,6 +433,10 @@ int readDataFromDisc(const char *path, char *buf, int numOfBlocks, size_t size, 
 
             // adding the new block instead of the LFU one
             STATE->_blocks[indexToInsert] = newBlock;
+
+            // todo: remove
+            std::cout << "Disc block #: " << curBlock << " startOfBlock: " << startOfBlock <<
+                    " bytesRead: " << bytesRead << " cacheIdx: " << indexToInsert << std::endl;
         }
     }
 
@@ -492,6 +493,9 @@ int caching_read(const char *path, char *buf, size_t size, off_t offset,
         }
         bytesRead += ret;
     }
+
+    // todo: remove
+    std::cout << "bytesRead: " << bytesRead<< std::endl;
 
     return bytesRead;
 }
