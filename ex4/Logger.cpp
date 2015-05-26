@@ -28,7 +28,7 @@ int logFunctionEntry(const char *funcName)
 
 int logCacheBlock(const CacheBlock *block)
 {
-    return fprintf(STATE->_log, "%s %d %d", block->_fileName,
+    return fprintf(STATE->_log, "%s %d %d\n", block->_fileName,
                    (int) (block->_start / STATE->_blockSize) + 1, block->_accessCounter);
 }
 
