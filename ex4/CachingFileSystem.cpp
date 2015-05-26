@@ -482,8 +482,14 @@ int caching_read(const char *path, char *buf, size_t size, off_t offset,
     // todo: remove
     std::cout << "bytesRead: " << bytesRead << std::endl;
 
+    int blocksRemaining = 0;
+    for (int i=0; i<numOfBlocks;++i)
+    {
+        blocksRemaining += hasBlockBeenRead[i] ? 0 : 1;
+    }
+
     // checking if we need to read from disc
-    if (bytesRead < size)
+    if (blocksRemaining > 0)
     {
         // reading the rest of the requested data from the disk
         if ((ret = readDataFromDisc(path, buf, numOfBlocks, size, offset, hasBlockBeenRead, fi)) <
