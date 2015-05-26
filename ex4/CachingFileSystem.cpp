@@ -419,7 +419,7 @@ int readDataFromDisc(const char *path, char *buf, int numOfBlocks, size_t size, 
             }
 
             // initializing a new block and reading from it to the buffer
-            CacheBlock *newBlock = new CacheBlock(path, startOfBlock, startOfBlock + bytesRead-1,
+            CacheBlock *newBlock = new CacheBlock(path, startOfBlock, startOfBlock + bytesRead,
                                                   retrievedData);
             bytesReadFromDisc += readFromBlock(newBlock, buf, offset, offset + size,
                                                getOffset(newBlock->_start, offset));
