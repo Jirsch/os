@@ -9,7 +9,7 @@ mkdir /tmp/root
 mkdir /tmp/root/inDir
 mkdir /tmp/root/secondDir
 
-for i in {1..100000}; do
+for i in {1..1000000}; do
     if !((i%1000)); then
         echo -n $i >> /tmp/root/inDir/large
         echo "|" >> /tmp/root/inDir/large

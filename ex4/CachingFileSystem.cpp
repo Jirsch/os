@@ -163,6 +163,10 @@ int caching_getattr(const char *path, struct stat *statbuf)
 int caching_fgetattr(const char *path, struct stat *statbuf, struct fuse_file_info *fi)
 {
     int ret;
+
+    // todo: remove
+    std::cout << "fget-path: " << path << std::endl;
+
     if ((ret = functionEntry(path, FGETATTR_FUNC)) != SUCCESS)
     {
         return ret;
