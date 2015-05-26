@@ -104,7 +104,7 @@ int functionEntry(const char *path, const char *funcName)
 int getLFU()
 {
     // make the first block the default minimum
-    int minAccesses = STATE->_blocks[0]._accessCounter;
+    int minAccesses = STATE->_blocks[0]->_accessCounter;
     int LFUIndex = 0;
 
     // going through the rest of the blocks and finding the minimum accessed one
@@ -253,7 +253,7 @@ int caching_open(const char *path, struct fuse_file_info *fi)
     {
         return -EACCES;
     }
-    
+
     int fd;
     char actualPath[PATH_MAX];
 
@@ -324,7 +324,8 @@ int getIndexToInsert()
 void initHasBlockBeenRead(int numOfBlocks, bool *hasBlocksBeenRead)
 {
     // initializing each block to its first byte
-    for (int i = 0; i < numOfBlocks; i++) {
+    for (int i = 0; i < numOfBlocks; i++)
+    {
         hasBlocksBeenRead[i] = false;
     }
 }
@@ -357,23 +358,25 @@ off_t getStartOfBlock(size_t curByte)
  * return the number f blocks read from cache
  */
 size_t readDataFromCache(const char *path, char *buf, size_t size, off_t offset,
-                       bool *hasBlockBeenRead)
+                         bool *hasBlockBeenRead)
 {
     size_t startOfReading = offset;
     size_t endOfReading = offset + size;
 
     size_t bytesRead = 0;
 
-    for (int i = 0; i < STATE->_numOfTakenBlocks; i++) {
+    for (int i = 0; i < STATE->_numOfTakenBlocks; i++)
+    {
         CacheBlock *cur = STATE->_blocks[i];
 
         // checking if the current block is part of the requested file
-        if (strncmp(path, cur->_fileName) == 0)
+        if (strncmp(path, cur->_fileName, PATH_MAX) == 0)
         {
             // checking if we need to read the current block
-            if (endOfReading >= cur->_start && startOfReading <= cur->_end) {
+            if (endOfReading >= cur->_start && startOfReading <= cur->_end)
+            {
                 bytesRead += readFromBlock(cur, buf, startOfReading, endOfReading,
-                              getOffset(cur->_start, startOfReading));
+                                           getOffset(cur->_start, startOfReading));
 
                 int blockNum =
                         (cur->_start + STATE->_blockSize - startOfReading) / STATE->_blockSize;
@@ -390,25 +393,28 @@ size_t readDataFromCache(const char *path, char *buf, size_t size, off_t offset,
  * return the number of bytes read
  */
 size_t readDataFromDisc(const char *path, char *buf, int numOfBlocks, off_t offset,
-                      bool *hasBlockBeenRead, struct fuse_file_info *fi)
+                        bool *hasBlockBeenRead, struct fuse_file_info *fi)
 {
     size_t bytesReadFromFile;
     size_t bytesReadFromDisc = 0;
 
-    for (int curBlock = 0; curBlock < numOfBlocks; curBlock++) {
+    for (int curBlock = 0; curBlock < numOfBlocks; curBlock++)
+    {
 
         bytesReadFromFile = 0;
 
         // checking if the current byte has been read already
-        if (hasBlockBeenRead[curBlock] == false) {
+        if (hasBlockBeenRead[curBlock] == false)
+        {
             // finding the byte that starts the block of the current byte
             int startOfBlock = getStartOfBlock(curBlock * STATE->_blockSize + offset);
 
             // initializing the data and reading it from the block
             char *retrievedData[STATE->_blockSize];
-            if (bytesReadFromFile = pread(fi->fh, retrievedData, STATE->_blockSize, startOfBlock) < SUCCESS)
+            if (bytesReadFromFile =
+                        pread(fi->fh, retrievedData, STATE->_blockSize, startOfBlock) < SUCCESS)
             {
-                return  -errno;
+                return -errno;
             }
 
             // initializing a new block and reading from it to the buffer
@@ -416,7 +422,7 @@ size_t readDataFromDisc(const char *path, char *buf, int numOfBlocks, off_t offs
                                                   startOfBlock + bytesReadFromFile,
                                                   retrievedData); // todo: STATE->_blockSize -1?
             bytesReadFromDisc += readFromBlock(newBlock, buf, curBlock + offset,
-                                                        offset + numOfBlocks, curBlock);
+                                               offset + numOfBlocks, curBlock);
 
             // updating that the block was read
             hasBlockBeenRead[curBlock] = true;
@@ -454,7 +460,7 @@ int caching_read(const char *path, char *buf, size_t size, off_t offset,
     int numOfBlocks = size / STATE->_blockSize + 1;
 
     // will hold a bool var for each block in the buf - true if it has been read, false o.w
-    int hasBlockBeenRead[numOfBlocks];
+    bool hasBlockBeenRead[numOfBlocks];
     initHasBlockBeenRead(numOfBlocks, hasBlockBeenRead);
 
     // looking in the cache for blocks that hold requested data and copying it to the buffer
