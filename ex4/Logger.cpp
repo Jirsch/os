@@ -5,7 +5,7 @@
 #include <time.h>
 #include "Logger.h"
 #include "CacheState.h"
-#include <osxfuse/fuse.h>
+#include <fuse.h>
 
 
 FILE *openLogger(const char *path)

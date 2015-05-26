@@ -7,10 +7,7 @@
 
 #define FUSE_USE_VERSION 26
 
-//todo: restore this
-//#include <fuse.h>
-//todo: remove this
-#include <osxfuse/fuse.h>
+#include <fuse.h>
 #include "CacheState.h"
 #include "Logger.h"
 #include <cerrno>
