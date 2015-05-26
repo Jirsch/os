@@ -25,7 +25,7 @@ typedef struct CacheBlock
     char *_data;
 
     // constructor
-    CacheBlock(char *fileName, size_t start, size_t end, char *data)
+    CacheBlock(const char *fileName, size_t start, size_t end, const char *data)
     {
         _start = start;
         _end = end;
@@ -34,7 +34,7 @@ typedef struct CacheBlock
         memcpy(_fileName, fileName, strlen(fileName) + 1);
 
         _data = new char[end - start];
-        memcpy(_data, data, end -start);
+        memcpy(_data, data, end - start);
 
         _accessCounter = 0;
     }
@@ -52,7 +52,7 @@ typedef struct PrivateData
     size_t _blockSize;
     int _numOfBlocks;
     int _numOfTakenBlocks;
-    CacheBlock** _blocks;
+    CacheBlock **_blocks;
     char *_rootDir;
     FILE *_log;
 } PrivateData;

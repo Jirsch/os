@@ -392,13 +392,13 @@ size_t readDataFromCache(const char *path, char *buf, size_t size, off_t offset,
 size_t readDataFromDisc(const char *path, char *buf, int numOfBlocks, off_t offset,
                         bool *hasBlockBeenRead, struct fuse_file_info *fi)
 {
-    size_t bytesReadFromFile;
+    size_t bytesRead;
     size_t bytesReadFromDisc = 0;
 
     for (int curBlock = 0; curBlock < numOfBlocks; curBlock++)
     {
 
-        bytesReadFromFile = 0;
+        bytesRead = 0;
 
         // checking if the current byte has been read already
         if (hasBlockBeenRead[curBlock] == false)
@@ -408,15 +408,14 @@ size_t readDataFromDisc(const char *path, char *buf, int numOfBlocks, off_t offs
 
             // initializing the data and reading it from the block
             char *retrievedData[STATE->_blockSize];
-            if (bytesReadFromFile =
-                        pread(fi->fh, retrievedData, STATE->_blockSize, startOfBlock) < SUCCESS)
+            if ((bytesRead = pread(fi->fh, retrievedData, STATE->_blockSize, startOfBlock)) <
+                SUCCESS)
             {
                 return -errno;
             }
 
             // initializing a new block and reading from it to the buffer
-            CacheBlock *newBlock = new CacheBlock(path, startOfBlock,
-                                                  startOfBlock + bytesReadFromFile,
+            CacheBlock *newBlock = new CacheBlock(path, startOfBlock, startOfBlock + bytesRead,
                                                   retrievedData); // todo: STATE->_blockSize -1?
             bytesReadFromDisc += readFromBlock(newBlock, buf, curBlock + offset,
                                                offset + numOfBlocks, curBlock);
