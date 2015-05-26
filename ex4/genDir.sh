@@ -16,7 +16,7 @@ for i in {1..1000000}; do
     fi
 
     echo -n $((i % 10)) >> /tmp/root/inDir/large
-    echo "|" >> /tmp/root/inDir/large
+    echo -n "|" >> /tmp/root/inDir/large
 
 done
 
