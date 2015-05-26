@@ -469,9 +469,6 @@ int caching_read(const char *path, char *buf, size_t size, off_t offset,
     int numOfBlocks = size % STATE->_blockSize != 0 ? size / STATE->_blockSize + 1 :
                       size / STATE->_blockSize;
 
-    // todo: remove
-    std::cout << "numBlocks: " << numOfBlocks << std::endl;
-
     // will hold a bool var for each block in the buf - true if it has been read, false o.w
     bool hasBlockBeenRead[numOfBlocks];
     initHasBlockBeenRead(numOfBlocks, hasBlockBeenRead);
@@ -486,6 +483,8 @@ int caching_read(const char *path, char *buf, size_t size, off_t offset,
     for (int i=0; i<numOfBlocks;++i)
     {
         blocksRemaining += hasBlockBeenRead[i] ? 0 : 1;
+        // todo: remove
+        std::cout << "block#: " << i << " read: " << hasBlockBeenRead[i] << std::endl;
     }
 
     // checking if we need to read from disc
