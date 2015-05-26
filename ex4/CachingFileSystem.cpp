@@ -645,7 +645,7 @@ int caching_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t o
     while ((dEntry = readdir(dir)) != NULL)
     {
         cout << "path: " << path << " name: " << dEntry->d_name << std::endl;
-        if (strncmp(path, "/", 1) != 0 || strncmp(dEntry->d_name, LOGGER_FILENAME, strlen
+        if (strncmp(path, "/", 1) != 0 || strncmp(dEntry->d_name, LOGGER_FILENAME + 1, strlen
                 (LOGGER_FILENAME)) != 0)
         {
             if (filler(buf, dEntry->d_name, NULL, 0) != SUCCESS)
