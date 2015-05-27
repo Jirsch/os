@@ -1,0 +1,42 @@
+orenbm21, jirsch
+Oren BenMeir (200143139), Jonathan Hirsch (200357697)
+Ex: 4
+
+FILES:
+CachingFileSystem.cpp - the main lybrary program
+CacheState.h - defines the CachBlock & PrivaetData structs
+Logger.h - responsible for logging
+Logger.cpp - same
+Makefile
+README
+
+REMARKS:
+
+Since most of the library function are almost identical to bbfs we'll write about caching_read:
+
+In this function we first log the path, check that the offset is valid and calculate
+the number of blocks that we'll be reading from.
+
+As for the reading part: we first go over the cache and check if there is a block
+with content from the file and range of bytes that we're reading from, in order
+to avoid deleting it from the cache and re-reading it.
+
+after reading from the cache we check if we still need to read more data and if so,
+we read it from the disc using pread, and storing the blocks in the cache (using the LFU 
+mechanism). 
+
+The blocks are stored in the cache as an array of pointers.
+
+
+ANSWERS:
+1. The separation between choosing a parent and the attaching (caused by async hash calculation)
+is the cause for multi-pointing. The main parameter here is the ratio between rate of incoming
+blocks and the duration of hash computation. We can change it via choice of quicker hash
+
+2. To rid ourselves of pruning, we could consider treating each block as if it was marked with
+the toLongest flag, thus parent computation will happen on-attach and thus the chain will
+continue always as a list rather than a tree
+
+3. We didn't deal with the case where prune and add_block are called at the same time, which may
+cause the new block to receive a non-minimal blockNum. This is caused by the fact that addBlock
+should not be blocking.
