@@ -465,6 +465,22 @@ int readDataFromDisc(const char *path, char *buf, int numOfBlocks, size_t size, 
     return bytesReadFromDisc;
 }
 
+int checkValidOffset(struct fuse_file_info *fi, off_t offset)
+{
+	struct stat fileStat;
+
+	if (fstat(fi->fh, &fileStat) < SUCCESS)
+	{
+		exit(EXIT_FAILURE);
+  	}
+
+	if (offset >= fileStat.st_size)
+	{
+		return -ENXIO;
+	}
+	return SUCCESS;
+}
+
 /** Read data from an open file
  *
  * Read should return exactly the number of bytes requested except
@@ -483,16 +499,10 @@ int caching_read(const char *path, char *buf, size_t size, off_t offset,
 		return ret;
 	}
 
-	struct stat fileStat;
-
-	if (fstat(fi->fh, &fileStat) < SUCCESS)
+	// checking that the offset does not exclude the file size
+	if((ret = checkValidOffset(fi, offset)) != SUCCESS)
 	{
-		exit(EXIT_FAILURE);
-  	}
-
-	if (offset >= fileStat.st_size)
-	{
-		return -ENXIO;
+		return ret;
 	}
 
     // calculating the number of blocks that will be read
