@@ -376,7 +376,7 @@ size_t readFromBlock(CacheBlock *block, char *buf, size_t start, size_t end, siz
  */
 off_t getStartOfBlock(size_t curByte)
 {
-    return (curByte / STATE->_blockSize) * STATE->_blockSize; // todo: +1?
+    return (curByte / STATE->_blockSize) * STATE->_blockSize;
 }
 
 /*
@@ -476,13 +476,24 @@ int readDataFromDisc(const char *path, char *buf, int numOfBlocks, size_t size, 
 int caching_read(const char *path, char *buf, size_t size, off_t offset,
                  struct fuse_file_info *fi)
 {
-    //todo: add treatment of too much reading
 
-    int ret;
-    if ((ret = functionEntry(path, READ_FUNC)) != SUCCESS)
-    {
-        return ret;
-    }
+	int ret;
+	if ((ret = functionEntry(path, READ_FUNC)) != SUCCESS)
+	{
+		return ret;
+	}
+
+	struct stat fileStat;
+
+	if (stat(path, &fileStat) < SUCCESS)
+	{
+		exit(EXIT_FAILURE);
+  	}
+
+	if (offset > fileStat.st_size )
+	{
+		return -ENXIO;
+	}
 
     // calculating the number of blocks that will be read
     int numOfBlocks = size % STATE->_blockSize != 0 ? size / STATE->_blockSize + 1 :
@@ -644,7 +655,6 @@ int caching_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t o
     errno = SUCCESS;
     while ((dEntry = readdir(dir)) != NULL)
     {
-        cout << "path: " << path << " name: " << dEntry->d_name << std::endl;
         if (strncmp(path, "/", 1) != 0 || strncmp(dEntry->d_name, LOGGER_FILENAME + 1, strlen
                 (LOGGER_FILENAME)) != 0)
         {
@@ -912,9 +922,8 @@ int main(int argc, char *argv[])
         argv[i] = NULL;
     }
     argv[2] = (char *) "-s";
-    //TODO: remove
-    argv[3] = (char *) "-f";
-    argc = 4;
+
+    argc = 3;
 
     int fuse_stat = fuse_main(argc, argv, &caching_oper, data);
     return fuse_stat;
