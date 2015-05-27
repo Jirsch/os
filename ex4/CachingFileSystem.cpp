@@ -485,12 +485,12 @@ int caching_read(const char *path, char *buf, size_t size, off_t offset,
 
 	struct stat fileStat;
 
-	if (stat(path, &fileStat) < SUCCESS)
+	if (fstat(fi->fh, &fileStat) < SUCCESS)
 	{
 		exit(EXIT_FAILURE);
   	}
 
-	if (offset > fileStat.st_size )
+	if (offset >= fileStat.st_size)
 	{
 		return -ENXIO;
 	}
