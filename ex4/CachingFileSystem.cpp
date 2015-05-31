@@ -467,18 +467,18 @@ int readDataFromDisc(const char *path, char *buf, int numOfBlocks, size_t size, 
 
 int checkValidOffset(struct fuse_file_info *fi, off_t offset)
 {
-	struct stat fileStat;
+    struct stat fileStat;
 
-	if (fstat(fi->fh, &fileStat) < SUCCESS)
-	{
-		exit(EXIT_FAILURE);
-  	}
+    if (fstat(fi->fh, &fileStat) < SUCCESS)
+    {
+        exit(EXIT_FAILURE);
+    }
 
-	if (offset >= fileStat.st_size)
-	{
-		return -ENXIO;
-	}
-	return SUCCESS;
+    if (offset >= fileStat.st_size)
+    {
+        return -ENXIO;
+    }
+    return SUCCESS;
 }
 
 /** Read data from an open file
@@ -493,17 +493,17 @@ int caching_read(const char *path, char *buf, size_t size, off_t offset,
                  struct fuse_file_info *fi)
 {
 
-	int ret;
-	if ((ret = functionEntry(path, READ_FUNC)) != SUCCESS)
-	{
-		return ret;
-	}
+    int ret;
+    if ((ret = functionEntry(path, READ_FUNC)) != SUCCESS)
+    {
+        return ret;
+    }
 
-	// checking that the offset does not exclude the file size
-	if((ret = checkValidOffset(fi, offset)) != SUCCESS)
-	{
-		return ret;
-	}
+    // checking that the offset does not exclude the file size
+    if ((ret = checkValidOffset(fi, offset)) != SUCCESS)
+    {
+        return ret;
+    }
 
     // calculating the number of blocks that will be read
     int numOfBlocks = size % STATE->_blockSize != 0 ? size / STATE->_blockSize + 1 :
@@ -716,7 +716,7 @@ int caching_rename(const char *path, const char *newpath)
 
     // file path too long
     if (strlen(path) > PATH_MAX - strlen(STATE->_rootDir) - 1 ||
-        strlen(newpath) > PATH_MAX - strlen(STATE->_rootDir) - 1 )
+        strlen(newpath) > PATH_MAX - strlen(STATE->_rootDir) - 1)
     {
         return -EINVAL;
     }
@@ -727,25 +727,48 @@ int caching_rename(const char *path, const char *newpath)
     toActualPath(actualPath, path);
     toActualPath(actualNewPath, newpath);
 
-    if (isDir(actualPath))
-    {
-        return  -EINVAL;
-    }
 
     if (rename(actualPath, actualNewPath) != SUCCESS)
     {
         return -errno;
     }
 
-    // rename paths in cache
-    for (int i = 0; i < STATE->_numOfTakenBlocks; ++i)
-    {
-        if (strncmp(path, STATE->_blocks[i]->_fileName, PATH_MAX) == 0)
-        {
-            delete[] STATE->_blocks[i]->_fileName;
+    int pathLength = strlen(path);
+    int newPathLength = strlen(newpath);
 
-            STATE->_blocks[i]->_fileName = new char[strlen(newpath) + 1];
-            memcpy(STATE->_blocks[i]->_fileName, newpath, strlen(newpath) + 1);
+    if (isDir(actualPath))
+    {
+        for (int i = 0; i < STATE->_numOfTakenBlocks; ++i)
+        {
+            // compare based on prefix
+            if (strncmp(path, STATE->_blocks[i]->_fileName, pathLength) == 0)
+            {
+                char *oldName = STATE->_blocks[i]->_fileName;
+                int oldNameLength = strlen(oldName);
+
+                STATE->_blocks[i]->_fileName = new char[newPathLength + oldNameLength -
+                        pathLength + 1];
+                memcpy(STATE->_blocks[i]->_fileName, newpath, newPathLength);
+                memcpy(STATE->_blocks[i]->_fileName + newPathLength, oldName + pathLength,
+                       oldNameLength - pathLength + 1);
+
+
+                delete[] oldName;
+            }
+        }
+    }
+    else
+    {
+        // rename paths in cache
+        for (int i = 0; i < STATE->_numOfTakenBlocks; ++i)
+        {
+            if (strncmp(path, STATE->_blocks[i]->_fileName, PATH_MAX) == 0)
+            {
+                delete[] STATE->_blocks[i]->_fileName;
+
+                STATE->_blocks[i]->_fileName = new char[newPathLength + 1];
+                memcpy(STATE->_blocks[i]->_fileName, newpath, newPathLength + 1);
+            }
         }
     }
 
