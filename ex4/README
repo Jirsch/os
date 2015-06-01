@@ -29,14 +29,54 @@ The blocks are stored in the cache as an array of pointers.
 
 
 ANSWERS:
-1. The separation between choosing a parent and the attaching (caused by async hash calculation)
-is the cause for multi-pointing. The main parameter here is the ratio between rate of incoming
-blocks and the duration of hash computation. We can change it via choice of quicker hash
 
-2. To rid ourselves of pruning, we could consider treating each block as if it was marked with
-the toLongest flag, thus parent computation will happen on-attach and thus the chain will
-continue always as a list rather than a tree
+1) Yes, the cache is saved in the RAM (Random Access Memory) and it takes nanoseconds to read 
+from or write to, while access speed to and from the disc is measured in milliseconds. 
+Therefore, it's about 100,000 times faster to read from the cache.
 
-3. We didn't deal with the case where prune and add_block are called at the same time, which may
-cause the new block to receive a non-minimal blockNum. This is caused by the fact that addBlock
-should not be blocking.
+2) As mentioned in the question, there is no one answer. In an array-based implementation the 
+modification of the counter is fast but the search for the LFU is not. In a Sorted List based 
+implementation it's exactly the opposite. Therefore, if we know that we will read mostly from 
+some files that will be in the cache it is better to use and array, so that we'll need mostly 
+to modify the counter, rather than read from the disc. Otherwise, if we know that we'll read 
+from many different files, so we'll need to read a lot from the disc, it's better to use the 
+Sorted List based implementation.
+
+3) Using the buffer cache may be harder to mangage for swapping pages, because memory access
+is done by the hardware, without any intervention of the OS, and therefore it's too difficult 
+to keep track on al lthe accesses.
+
+On the other hand, file access is done using the OS and thus it can keep track on the accesses,
+making the management easier.
+
+
+4) let's say we have a cache of two blocks and three files - f1, f2, f3 which each take one block, 
+and let's say the reading order is:
+
+f1 - f1 - f1 - f1 - f2 - f3 - f1.
+
+In LRU we'll discard f1 before reading f3 and therefore we'll have a total of 4 readings from the 
+disc while in LFU it would have been 3.
+
+Now let's say the reading order is:
+
+f1 - f1 - f1 - f1 - f2 - f3 - f2.
+
+In LFU we'll discard f2 before reading f3 and therefore we'll have a total of 4 readings from the 
+disc while in LRU it would have been 3.
+
+Now let's say the reading order is:
+
+f1 - f1 - f1 - f1 - f2 - f1 - f3 - f2 
+
+In LFU we'll discard f2 before reading f3 and therefore we'll have a total of 4 readings from the 
+disc. Also in LRU we'll discard f2 before reading f3 and therefore we'll have a total of 4 readings 
+from the disc. So both of the working patterns don't help at all.
+
+5) the typical page size in the OS is 4096 bytes, so the ideal block-size for this excersize will
+be 4096 bytes. 
+
+If we'll use a smaller block-size, the OS read requests will be broken to pieces which would cause
+a longer reading time.
+
+If we'l use a larger block size we'll have blocks with free space, causing a cache waste.

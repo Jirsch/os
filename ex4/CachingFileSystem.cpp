@@ -43,6 +43,12 @@ static const char *const RELEASEDIR_FUNC = "releasedir";
 
 static const int SUCCESS = 0;
 
+static const int TRUE = 1;
+
+static const int FALSE = 0;
+
+static const int MAX_TO_COMPARE = 2;
+
 static const char *const READDIR_FUNC = "readdir";
 
 static const char *const OPENDIR_FUNC = "opendir";
@@ -65,6 +71,11 @@ static const char *const IOCTL_FUNC = "ioctl";
 
 static const char *const READ_FUNC = "read";
 
+
+
+/*
+ * prints system error and exits
+ */
 void handleSystemError(const char *msg)
 {
     std::cerr << SYSTEM_ERROR_PREFIX << msg << std::endl;
@@ -80,30 +91,42 @@ static void toActualPath(char fpath[PATH_MAX], const char *path)
     strncat(fpath, path, PATH_MAX - strlen(STATE->_rootDir) - 1);
 }
 
+/*
+ * return 1 if the given path is a directory, 0 otherwise
+ */
 int isDir(char const *path)
 {
-    int isDir = 1;
+    int isDir = TRUE;
     struct stat s;
+
     int statRet = stat(path, &s);
+
     if (statRet == FAILURE)
     {
-        isDir = 0;
-    }
-    else if (!S_ISDIR(s.st_mode))
-    {
-        isDir = 0;
+        isDir = FALSE;
     }
 
+    else if (!S_ISDIR(s.st_mode))
+    {
+        isDir = FALSE;
+    }
 
     return isDir;
 }
 
+/*
+ * prints out a message saying that the usage is invalid and exits
+ */
 void invalidUsage()
 {
     cout << USAGE << endl;
     exit(0);
 }
 
+/*
+ * will be called in every entry to a library function.
+ * logs the function name and validates the path
+ */
 int functionEntry(const char *path, const char *funcName)
 {
     if (logFunctionEntry(funcName) < SUCCESS)
@@ -193,7 +216,7 @@ int caching_fgetattr(const char *path, struct stat *statbuf, struct fuse_file_in
         return ret;
     }
 
-    if (strncmp(path, "/", 2) == 0)
+    if (strncmp(path, "/", MAX_TO_COMPARE) == 0)
     {
         return caching_getattr(path, statbuf);
     }
@@ -465,13 +488,16 @@ int readDataFromDisc(const char *path, char *buf, int numOfBlocks, size_t size, 
     return bytesReadFromDisc;
 }
 
+/*
+ * return 0 if the given offset is in the bounds of the file, -ENXIO otherwise
+ */
 int checkValidOffset(struct fuse_file_info *fi, off_t offset)
 {
     struct stat fileStat;
 
     if (fstat(fi->fh, &fileStat) < SUCCESS)
     {
-        exit(EXIT_FAILURE);
+        return -errno;
     }
 
     if (offset >= fileStat.st_size)
@@ -885,6 +911,9 @@ void init_caching_oper()
     caching_oper.ftruncate = NULL;
 }
 
+/*
+ * initialize the private data struct
+ */
 PrivateData *initPrivateData(char *const *argv, long numOfBlocks, long blockSize)
 {
     PrivateData *data = new PrivateData;
@@ -921,7 +950,6 @@ PrivateData *initPrivateData(char *const *argv, long numOfBlocks, long blockSize
     return data;
 }
 
-//basic main. You need to complete it.
 int main(int argc, char *argv[])
 {
     int validArgs = 1;
