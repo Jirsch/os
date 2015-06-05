@@ -8,6 +8,9 @@
 
 class clftp
 {
+    private size_t _maxFileSize;
+    private int _port;
+
 
 };
 
