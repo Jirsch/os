@@ -8,7 +8,9 @@
 
 class srftp
 {
-
+private:
+    size_t _maxFileSize;
+    int _port;
 };
 
 
