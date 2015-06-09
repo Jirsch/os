@@ -1,11 +1,9 @@
 Upon establishing connection:
-1. The server sends an int (4 bytes) indicating max file size
+1. The server sends an uint32_t ( sizeof(uint32_t) bytes) indicating max file size
 
-2. The client replies with one byte of data: 0 if no more data will be sent and 1 otherwise
+2. Assuming all is well (otherwise client exits and the socket is closed):
 
-3. Assuming 1 was sent:
-
-    3.1. The client sends an int of file name length (including null terminator)
+    3.1. The client sends a uint32_t of file name length (including null terminator)
     3.2. The client sends the file name (with null terminator)
-    3.3. The client sends an int of the size of data
+    3.3. The client sends an uint32_t of the size of data
     3.4. The client sends the amount of data it said it will and closes the connection
