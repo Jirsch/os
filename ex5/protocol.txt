@@ -1,0 +1,11 @@
+Upon establishing connection:
+1. The server sends an int (4 bytes) indicating max file size
+
+2. The client replies with one byte of data: 0 if no more data will be sent and 1 otherwise
+
+3. Assuming 1 was sent:
+
+    3.1. The client sends an int of file name length (including null terminator)
+    3.2. The client sends the file name (with null terminator)
+    3.3. The client sends an int of the size of data
+    3.4. The client sends the amount of data it said it will and closes the connection

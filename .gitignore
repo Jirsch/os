@@ -1,6 +1,7 @@
 # CLion
 **/.idea
 **/CMakeLists.txt
+**/.DS_Store
 
 # Eclipse
 **/.cproject
