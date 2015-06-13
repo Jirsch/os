@@ -203,22 +203,24 @@ void copyFileFromSocket(char *fileName, size_t size, int socket)
     ssize_t rc;
 
     // initializing an ofstream object with the given file name
-    ofstream file(fileName, ofstream::out);
+    ofstream file(fileName);
+
+    // allocate a buffer in BLOCK_SIZE size
+    char *buf = new char[BLOCK_SIZE + 1];
 
     // read content of file block by block
     while (remains > 0)
     {
-        // allocate a buffer in BLOCK_SIZE size
-        char *data = new char[BLOCK_SIZE + 1];
+
 
         // read BLOCK_SIZE bytes from the stream
-        if ((rc = read(socket, data, BLOCK_SIZE)) < SUCCESS)
+        if ((rc = read(socket, buf, BLOCK_SIZE)) < SUCCESS)
         {
             exitOnSysErr(READ_FUNC, errno);
         }
 
         // write it to the file
-        if ((file.write(data, rc)) < SUCCESS)
+        if ((file.write(buf, rc)) < SUCCESS)
         {
             exitOnSysErr(OFSTREAM_WRITE_FUNC, errno);
         }
@@ -226,9 +228,12 @@ void copyFileFromSocket(char *fileName, size_t size, int socket)
         // update the number of bytes remaining
         remains -= rc;
 
-        // deallocate the buffer
-        delete[] data;
+        // reset the buffer
+        memset(buf, 0, sizeof(buf));
     }
+
+    // deallocate the buffer
+    delete[] buf;
 }
 
 /*
@@ -312,6 +317,10 @@ void readFromClient(int socket)
     copyFileFromSocket(fileName, fileSize, socket);
 }
 
+/*
+ * contacting with a client through a given socket.
+ * first send the max-file-size and if the client sends a file, read it and save to working directory
+ */
 void* contactWithClient(void* args)
 {
     SocketData *socketData = (SocketData*) args;
@@ -321,6 +330,44 @@ void* contactWithClient(void* args)
 
     // read the file's details and then the file itself
     readFromClient(*(socketData->getSocket()));
+
+    delete (socketData->getSocket());
+    pthread_exit(NULL);
+}
+
+/*
+ * create a new thread for a given socket which will run the given function
+ */
+void createSocketThread(int socket, long int maxFileSize, void* f (void*))
+{
+    SocketData *args = new SocketData(socket, maxFileSize);
+
+    // open thread for connecting with client
+    pthread_t socketThread;
+    if ((pthread_create(&socketThread, NULL, f, args)) < SUCCESS)
+    {
+        exitOnSysErr(PTHREAD_CREATE_FUNC, errno);
+    }
+}
+
+/*
+ * get new client connections while clients are connenting to the port
+ */
+void* acceptConnections(void* args)
+{
+    SocketData *socketData = (SocketData*) args;
+
+    // start contacting with clients
+    while (true)
+    {
+        int clientSocket = getNewClientSocket(*(socketData->getSocket()));
+
+        // creating a thread for the new socket
+        createSocketThread(clientSocket, socketData->getMaxFileSize(), &contactWithClient);
+    }
+
+    delete (socketData->getSocket());
+    pthread_exit(NULL);
 }
 
 int main(int argc, char* argv[])
@@ -333,19 +380,6 @@ int main(int argc, char* argv[])
     // get the socket that will accept requests from clients
     int acceptingSocket = connectToSocket(port);
 
-    // start contacting with clients
-    while (true)
-    {
-        int clientSocket = getNewClientSocket(acceptingSocket);
-
-        SocketData *args = new SocketData(clientSocket, maxFileSize);
-
-        // open thread for connecting with client
-        pthread_t socketThread;
-        if ((pthread_create(&socketThread, NULL, &contactWithClient, args)) < SUCCESS)
-        {
-            exitOnSysErr(PTHREAD_CREATE_FUNC, errno);
-        }
-    }
-
+    // create a thread for accepting new connections
+    createSocketThread(acceptingSocket, maxFileSize, &acceptConnections);
 }
