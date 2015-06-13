@@ -2,7 +2,6 @@
 // Created by orenbm21 on 6/5/2015.
 //
 
-// todo: check if need to remove includes
 #include <sys/types.h>
 #include <netinet/in.h>
 #include <netdb.h>
@@ -11,24 +10,25 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/errno.h>
+#include <fstream>
 
+#define SUCCESS 0
+#define FAILURE 1
 #define ARG_COUNT 3
 #define PORT_ARG_IDX 1
 #define MAX_FILE_SIZE_ARG_IDX 2
-#define SUCCESS 0
 #define MIN_PORT 1
 #define MAX_PORT 65535
 #define MIN_FILE_SIZE 0
 #define MAX_PENDING 5
-
-#define FAILURE 1
-#define SUCCESS 0
-
+#define BLOCK_SIZE 4096
 #define USAGE "Usage: srftp server-port max-file-size"
 #define ERR_FUNC "Error: function:"
 #define ERRNO "errno:"
 #define NEW_LINE ".\n"
 
+static const char *const PTHREAD_CREATE_FUNC = "pthread_create";
+static const char *const OFSTREAM_WRITE_FUNC = "ofstream write";
 static const char *const GETHOSTBYNAME_FUNC = "gethostbyname";
 static const char *const SOCKET_FUNC = "socket";
 static const char *const BIND_FUNC = "bind";
@@ -36,39 +36,104 @@ static const char *const READ_FUNC = "read";
 static const char *const WRITE_FUNC = "write";
 static const char *const ACCEPT_FUNC = "accept";
 
+using namespace std;
 
+/*
+ * a struct that holds the socket and max-file-size to transfer
+ */
+typedef struct SocketData
+{
+
+private:
+    int* _clientSocket;
+    long int _maxFileSize;
+
+public:
+
+    /*
+     * constructor
+     */
+    SocketData(int clientSocket, long int maxFileSize) : _maxFileSize(maxFileSize)
+    {
+        _clientSocket = new int[clientSocket];
+    }
+
+    /*
+     * return the socket
+     */
+    int* getSocket()
+    {
+        return _clientSocket;
+    };
+
+    /*
+     * return the max-file-size to transfer
+     */
+    long int getMaxFileSize()
+    {
+        return _maxFileSize;
+    }
+
+    /*
+     * destructor
+     */
+    ~SocketData()
+    {
+        delete[] _clientSocket;
+    }
+
+} SocketData;
+
+/*
+ * return true if the port is valid (between 1 and 65535)
+ */
 bool isValidPort(int port)
 {
     return port >= MIN_PORT && port <= MAX_PORT;
 }
 
+/*
+ * return true if the max-file-size is valid (higher than zero)
+ */
 bool isValidMaxFile(size_t maxFileSize)
 {
     return maxFileSize >= MIN_FILE_SIZE;
 }
 
+/*
+ * prints an error message and exits with 1
+ */
 void exitOnSysErr(const char *name, int err_no)
 {
     std::cerr << ERR_FUNC << name << ERRNO << err_no << NEW_LINE << std::endl;
     exit(FAILURE);
 }
 
+/*
+ * prints an "incorrect usage" message and exits with 0
+ */
 void exitOnIncorrectUsage()
 {
     std::cout << USAGE << std::endl;
     exit(SUCCESS);
 }
 
+/*
+ * validates that the user input is valid
+ */
 void validateInput(int argc, char* argv[])
 {
+    // check that the input has the right amount of arguments
     if (argc != ARG_COUNT)
     {
         exitOnIncorrectUsage();
     }
 
+    // get the port and max-file-size inputs
     long int portInput = strtol(argv[PORT_ARG_IDX], NULL, 10);
     long int maxFileSizeInput = strtol(argv[MAX_FILE_SIZE_ARG_IDX], NULL, 10);
 
+    // validate the port and max-file-size
     if (!isValidPort(portInput) || !isValidMaxFile(maxFileSizeInput))
     {
         exitOnIncorrectUsage();
@@ -120,6 +185,7 @@ int getNewClientSocket(int socket) {
 
     int newSocket;
 
+    // wait for a new connection
     if ((newSocket =  accept(socket,NULL,NULL)) < SUCCESS)
     {
         exitOnSysErr(ACCEPT_FUNC, errno);
@@ -129,24 +195,59 @@ int getNewClientSocket(int socket) {
 }
 
 /*
- * read data from a given client's socket
+ * read a file from a given client's socket and write it to working directory
  */
-char* readData(const char *data, size_t size, int socket)
+void copyFileFromSocket(char *fileName, size_t size, int socket)
 {
     size_t remains = size;
     ssize_t rc;
+
+    // initializing an ofstream object with the given file name
+    ofstream file(fileName, ofstream::out);
+
+    // read content of file block by block
     while (remains > 0)
     {
-        // todo: is the conversion to void* ok?
-        if ((rc = read(socket, (void *) (data + size - remains), remains)) < SUCCESS)
+        // allocate a buffer in BLOCK_SIZE size
+        char *data = new char[BLOCK_SIZE + 1];
+
+        // read BLOCK_SIZE bytes from the stream
+        if ((rc = read(socket, data, BLOCK_SIZE)) < SUCCESS)
         {
             exitOnSysErr(READ_FUNC, errno);
         }
 
+        // write it to the file
+        if ((file.write(data, rc)) < SUCCESS)
+        {
+            exitOnSysErr(OFSTREAM_WRITE_FUNC, errno);
+        }
+
+        // update the number of bytes remaining
+        remains -= rc;
+
+        // deallocate the buffer
+        delete[] data;
+    }
+}
+
+/*
+ * read data of size size from a given client's socket into buf
+ */
+void readData(char* buf, size_t size, int socket)
+{
+    size_t remains = size;
+    ssize_t rc;
+
+    // reading the data from the socket into buf
+    while (remains > 0)
+    {
+        if ((rc = read(socket, buf + size - remains, remains)) < SUCCESS)
+        {
+            exitOnSysErr(READ_FUNC, errno);
+        }
         remains -= rc;
     }
-
-    return (char*) data;
 }
 
 /*
@@ -157,7 +258,7 @@ uint32_t readNumber(int socket)
     uint32_t origin;
     char *data = (char *) &origin;
 
-    origin = (uint32_t) readData(data, sizeof(origin), socket);
+    readData(data, sizeof(origin), socket);
 
     return ntohl(origin);
 }
@@ -169,6 +270,8 @@ void sendData(const char *data, size_t size, int socket)
 {
     size_t remains = size;
     ssize_t rc;
+
+    // write content to socket
     while (remains > 0)
     {
         if ((rc = write(socket, data + size - remains, remains)) < SUCCESS)
@@ -200,22 +303,25 @@ void readFromClient(int socket)
 
     // receive the file name
     char fileName[nameLen + 1];
-    fileName = readData(fileName, nameLen, socket);
+    readData(fileName, nameLen, socket);
 
     // receive the file size
     uint32_t fileSize = readNumber(socket);
 
-    // receive the file
-    char fileData[fileSize + 1];
-    fileData = readData(fileData, fileSize, socket);
-
-    int file;
-    if ((write(file, fileData, fileSize)) < SUCCESS)
-    {
-        exitOnSysErr(WRITE_FUNC, errno);
-    }
+    // receive the file and write it to working directory
+    copyFileFromSocket(fileName, fileSize, socket);
 }
 
+void* contactWithClient(void* args)
+{
+    SocketData *socketData = (SocketData*) args;
+
+    // send the max-file-size to the client
+    sendNumber(socketData->getMaxFileSize(), *(socketData->getSocket()));
+
+    // read the file's details and then the file itself
+    readFromClient(*(socketData->getSocket()));
+}
 
 int main(int argc, char* argv[])
 {
@@ -227,12 +333,19 @@ int main(int argc, char* argv[])
     // get the socket that will accept requests from clients
     int acceptingSocket = connectToSocket(port);
 
-    // todo: contact with more than one client
-    int clientSocket = getNewClientSocket(acceptingSocket);
+    // start contacting with clients
+    while (true)
+    {
+        int clientSocket = getNewClientSocket(acceptingSocket);
 
-    // send the max-file-size to the client
-    sendNumber(maxFileSize, clientSocket);
+        SocketData *args = new SocketData(clientSocket, maxFileSize);
 
-    // read the file's details and then the file itself
-    readFromClient(clientSocket);
+        // open thread for connecting with client
+        pthread_t socketThread;
+        if ((pthread_create(&socketThread, NULL, &contactWithClient, args)) < SUCCESS)
+        {
+            exitOnSysErr(PTHREAD_CREATE_FUNC, errno);
+        }
+    }
+
 }
