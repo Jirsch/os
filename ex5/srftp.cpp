@@ -55,6 +55,7 @@ public:
      */
     SocketData(int clientSocket, long int maxFileSize) : _maxFileSize(maxFileSize)
     {
+        //todo: why is this an array?
         _clientSocket = new int[clientSocket];
     }
 
@@ -202,9 +203,13 @@ void copyFileFromSocket(char *fileName, size_t size, int socket)
     size_t remains = size;
     ssize_t rc;
 
+    //todo: check if need special access (append \ override)
+    //todo: check if need to catch errors
     // initializing an ofstream object with the given file name
     ofstream file(fileName);
 
+    //todo: why +1? this is just data, not a string
+    //todo: don't use dynamic allocation, use char buf[BLOCK_SIZE] instead
     // allocate a buffer in BLOCK_SIZE size
     char *buf = new char[BLOCK_SIZE + 1];
 
@@ -219,6 +224,7 @@ void copyFileFromSocket(char *fileName, size_t size, int socket)
             exitOnSysErr(READ_FUNC, errno);
         }
 
+        //todo: does this return how many bytes were written?
         // write it to the file
         if ((file.write(buf, rc)) < SUCCESS)
         {
@@ -228,6 +234,7 @@ void copyFileFromSocket(char *fileName, size_t size, int socket)
         // update the number of bytes remaining
         remains -= rc;
 
+        //todo: why do we need this?
         // reset the buffer
         memset(buf, 0, sizeof(buf));
     }
@@ -306,6 +313,7 @@ void readFromClient(int socket)
     // receive the file name length from the client
     uint32_t nameLen = readNumber(socket);
 
+    //todo: no need for +1, client already sends including the null
     // receive the file name
     char fileName[nameLen + 1];
     readData(fileName, nameLen, socket);
@@ -381,5 +389,6 @@ int main(int argc, char* argv[])
     int acceptingSocket = connectToSocket(port);
 
     // create a thread for accepting new connections
+    //todo: this shouldn't be in a new thread
     createSocketThread(acceptingSocket, maxFileSize, &acceptConnections);
 }
