@@ -1,0 +1,30 @@
+Thoretical Part:
+
+1)
+
+The problems with UDP are:
+a. Not all the packets will surely arrive at the other side.
+b. the packets may arrive not orderred;
+
+We'll describe a reliable file transfer protocol over UDP connection
+that overcomes the above problems.
+
+first, the client will number all the packets and add the number to the 
+packet. second, we will add to every packet the packet size 
+(that will be shared by all packets) the number of packets. Then, we'll
+send all the packets.
+
+On the server side, we'll write to the file according to the packet 
+number and the packet size (to an offset). After a time that we'll 
+define the server will send to the clients the packet numbers that
+it didn't get. the client will send those packets back and so on.
+
+Only when the server got all the packets (let's remind that it holds
+the number of packets), it will close the file.
+
+It's obvious that it overcomes the problems mentioned above and
+it is also efficient because it uses the UDP connction, which is very 
+lightweight (because it doesn't order the packets or track connections).
+
+2)
+

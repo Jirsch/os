@@ -235,7 +235,7 @@ int main(int argc, char *argv[])
 
     if (fileSize > maxFileSize)
     {
-    	cout << “Transmission failed: too big file” << endl;
+    	cout << "Transmission failed: too big file" << endl;
     	close(socket);
     	
     	return SUCCESS;

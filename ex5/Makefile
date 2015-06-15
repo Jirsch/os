@@ -16,10 +16,10 @@ TARSRCS=$(CLNTSRC) $(SRVRSRC) Makefile README
 
 all: clean clftp srftp
 
-clftp: CLNTSRC
+clftp: $(CLNTSRC)
 	$(CC) $(CFLAGS) $^ -lpthread -o $@
 
-srftp: SRVRSRC
+srftp: $(SRVRSRC)
 	$(CC) $(CFLAGS) $^ -lpthread -o $@
 
 clean:
