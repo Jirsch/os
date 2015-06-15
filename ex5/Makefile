@@ -17,10 +17,10 @@ TARSRCS=$(CLNTSRC) $(SRVRSRC) Makefile README
 all: clean clftp srftp
 
 clftp: CLNTSRC
-	$(CC) $(CFLAGS) $^ -o $@
+	$(CC) $(CFLAGS) $^ -lpthread -o $@
 
 srftp: SRVRSRC
-	$(CC) $(CFLAGS) $^ -o $@
+	$(CC) $(CFLAGS) $^ -lpthread -o $@
 
 clean:
 	$(RM) $(TARGETS) $(EXLIB) $(OBJ) $(LIBOBJ) *~ *core
