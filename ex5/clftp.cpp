@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/errno.h>
+#include <sys/time.h>
 
 static const int SUCCESS = 0;
 static const char *const GETHOSTBYNAME_FUNC = "gethostbyname";
@@ -231,6 +232,9 @@ int main(int argc, char *argv[])
 
     int socket = connectToServer(hostname, portNum);
 
+    timeval start,end;
+    gettimeofday(&start,NULL);
+
     uint32_t maxFileSize = readNumber(socket);
 
     if (fileSize > maxFileSize)
@@ -251,6 +255,10 @@ int main(int argc, char *argv[])
 
 
     sendFile(socket, file, blockSize);
+
+    gettimeofday(&end,NULL);
+    cout << "FileSize:" << fileSize << " ms:" <<
+            (end.tv_sec-start.tv_sec)*1000000 + (end.tv_usec-start.tv_usec) << std::endl;
 
     close(socket);
 
