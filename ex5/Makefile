@@ -24,7 +24,7 @@ srftp: $(SRVRSRC)
 	$(CC) $(CFLAGS) $^ -lpthread -o $@
 
 clean:
-	$(RM) $(TARGETS) $(EXLIB) $(OBJ) $(LIBOBJ) *~ *core
+	$(RM) clftp srftp $(TARNAME)
 
 tar:
 	$(TAR) $(TARFLAGS) $(TARNAME) $(TARSRCS)
