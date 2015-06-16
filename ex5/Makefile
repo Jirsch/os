@@ -13,8 +13,9 @@ TARFLAGS=-cvf
 TARNAME=ex5.tar
 TARSRCS=$(CLNTSRC) $(SRVRSRC) Makefile README
 
+TARGETS: clftp srftp
 
-all: clean clftp srftp
+all: clean $(TARGETS)
 
 clftp: $(CLNTSRC)
 	$(CC) $(CFLAGS) $^ -lpthread -o $@
