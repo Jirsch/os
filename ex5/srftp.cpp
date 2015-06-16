@@ -7,8 +7,12 @@
 #include <netdb.h>
 #include <iostream>
 #include <unistd.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/errno.h>
 #include <fstream>
-#include <sys/syslimits.h>
+#include <limits.h>
+#include <algorithm>
 
 #define SUCCESS 0
 #define FAILURE 1
