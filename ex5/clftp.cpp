@@ -9,9 +9,6 @@
 #include <sys/stat.h>
 #include <sys/fcntl.h>
 #include <unistd.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/errno.h>
 
 static const int SUCCESS = 0;
 static const char *const GETHOSTBYNAME_FUNC = "gethostbyname";

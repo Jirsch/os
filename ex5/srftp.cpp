@@ -7,12 +7,8 @@
 #include <netdb.h>
 #include <iostream>
 #include <unistd.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/errno.h>
 #include <fstream>
-#include <limits.h>
-#include <algorithm>
+#include <sys/syslimits.h>
 
 #define SUCCESS 0
 #define FAILURE 1
@@ -90,7 +86,7 @@ public:
 /*
  * return true if the port is valid (between 1 and 65535)
  */
-bool isValidPort(int port)
+bool isValidPort(long port)
 {
     return port >= MIN_PORT && port <= MAX_PORT;
 }
@@ -148,7 +144,7 @@ void validateInput(int argc, char* argv[])
  */
 int connectToSocket(long int port)
 {
-    char hostname[NAME_MAX + 1];
+    char hostname[NAME_MAX];
     struct sockaddr_in sa;
     struct hostent *entry;
     int clientSocket;
