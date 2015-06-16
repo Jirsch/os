@@ -15,7 +15,7 @@ TARSRCS=$(CLNTSRC) $(SRVRSRC) Makefile README
 
 TARGETS: clftp srftp
 
-all: clean $(TARGETS)
+all: clean clftp srftp
 
 clftp: $(CLNTSRC)
 	$(CC) $(CFLAGS) $^ -lpthread -o $@
