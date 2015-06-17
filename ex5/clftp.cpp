@@ -232,9 +232,6 @@ int main(int argc, char *argv[])
 
     int socket = connectToServer(hostname, portNum);
 
-    timeval start,end;
-    gettimeofday(&start,NULL);
-
     uint32_t maxFileSize = readNumber(socket);
 
     if (fileSize > maxFileSize)
@@ -253,12 +250,7 @@ int main(int argc, char *argv[])
 
     sendMetadata(socket, pathOnServer, fileSize);
 
-
     sendFile(socket, file, blockSize);
-
-    gettimeofday(&end,NULL);
-    cout << "FileSize:" << fileSize << " ms:" <<
-            (end.tv_sec-start.tv_sec)*1000000 + (end.tv_usec-start.tv_usec) << std::endl;
 
     close(socket);
 

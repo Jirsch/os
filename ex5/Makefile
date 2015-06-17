@@ -11,7 +11,7 @@ CFLAGS = -Wall -g -std=c++11 $(INCS)
 TAR=tar
 TARFLAGS=-cvf
 TARNAME=ex5.tar
-TARSRCS=$(CLNTSRC) $(SRVRSRC) Makefile README
+TARSRCS=$(CLNTSRC) $(SRVRSRC) Makefile README performance.jpg
 
 TARGETS: clftp srftp
 

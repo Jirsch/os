@@ -1,15 +1,27 @@
+orenbm21, jirsch
+Oren BenMeir (200143139), Jonathan Hirsch (200357697)
+Ex: 5
+
+Files:
+clftp.cpp - The FTP client code. Connects to a specified server and transmits one file
+srftp.cpp - The FTP server code. Listens to incoming client requests and stores the files locally
+performance.jpg - Transmission time by file size graph
+README
+Makefile
+
+
 Thoretical Part:
 
 1)
 
 The problems with UDP are:
 a. Not all the packets will surely arrive at the other side.
-b. the packets may arrive not orderred;
+b. the packets may arrive not ordered;
 
 We'll describe a reliable file transfer protocol over UDP connection
 that overcomes the above problems.
 
-first, the client will number all the packets and add the number to the 
+First, the client will number all the packets and add the number to the
 packet. second, we will add to every packet the packet size 
 (that will be shared by all packets) the number of packets. Then, we'll
 send all the packets.
@@ -19,7 +31,7 @@ number and the packet size (to an offset). After a time that we'll
 define the server will send to the clients the packet numbers that
 it didn't get. the client will send those packets back and so on.
 
-Only when the server got all the packets (let's remind that it holds
+Only when the server got all the packets (recall that it holds
 the number of packets), it will close the file.
 
 It's obvious that it overcomes the problems mentioned above and
@@ -27,4 +39,10 @@ it is also efficient because it uses the UDP connction, which is very
 lightweight (because it doesn't order the packets or track connections).
 
 2)
-
+We chose file sizes from several bytes to around 1 MB. After running each size in our sample for
+around 20 iterations (and removing excess noise, iterations that deviated by an order of
+magnitude) we arrive at an almost perfect linear model, which is to be expected once we require
+to send multiple chunks. In small file sizes however the results were not strictly linear, but
+the differences were in tens of micron seconds so we assume they are the result of overall
+network noise and the fact the many people were running the same experiment which causes
+fluctuations in network speed.
