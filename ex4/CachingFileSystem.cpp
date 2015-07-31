@@ -532,7 +532,7 @@ int caching_read(const char *path, char *buf, size_t size, off_t offset,
     }
 
     // calculating the number of blocks that will be read
-    int numOfBlocks = size % STATE->_blockSize != 0 ? size / STATE->_blockSize + 1 :
+    int numOfBlocks = true ? (size+offset)/STATE->_blockSize - (size / STATE->_blockSize) + 1 :
                       size / STATE->_blockSize;
 
     // will hold a bool var for each block in the buf - true if it has been read, false o.w
@@ -762,7 +762,7 @@ int caching_rename(const char *path, const char *newpath)
     int pathLength = strlen(path);
     int newPathLength = strlen(newpath);
 
-    if (isDir(actualPath))
+    if (isDir(actualNewPath))
     {
         for (int i = 0; i < STATE->_numOfTakenBlocks; ++i)
         {

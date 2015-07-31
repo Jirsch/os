@@ -1,0 +1,17 @@
+Code fixes:
+
+- When renaming a FileDescriptor we use different behaviour whether its a file or a dir, but we
+passed the old path to our isDir function, therefore directory renaming didn't affect cached
+blocks. We simply changed the argument to the function.
+
+- We had a problem calculating the number of blocks we need to read (either from cache or disc)
+since we didn't take the offset into account.
+
+General comment:
+Our read function first reads whatever data it can from cache before loading blocks from disc;
+this allows us to be more efficient when dealing with our cache. This may cause some tests to
+fail if they assume a specific order of blocks being read, but it isn't against the exercise
+description and in our opinion its a better way to deal with cache.
+
+We think that this may be the cause for failure in tests cache_lfu_fail, offset_read_tail and
+maybe cache_rename_file_fail
